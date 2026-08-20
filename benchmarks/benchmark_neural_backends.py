@@ -7,18 +7,22 @@ import json
 import math
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
 
+import h5py
 import numpy as np
 import scipy
 import sklearn
 
 from brainmodel_utils.metrics.consistency import get_linregress_consistency
 from brainmodel_utils.neural_mappers import PercentileNeuralMap, SKLinearNeuralMap
+from brainmodel_utils.neural_mappers import backends as neural_backends
 from brainmodel_utils.neural_mappers.utils import generate_train_test_splits
 
 SUITES = {
@@ -53,6 +57,17 @@ SUITES = {
         "splits": 5,
     },
 }
+
+WORKLOADS = ("transfer", "ridge", "percentile", "consistency")
+WORKLOAD_KEYS = {
+    "transfer": "host_device_transfer",
+    "ridge": "ridge_mapper",
+    "percentile": "percentile_mapper",
+    "consistency": "linregress_consistency",
+}
+REGION_ROIS = {"IPS": ("IPS_L", "IPS_R")}
+NEURAL_SERIES_PATH = "processing/ophys/TwoPhotonSeriesFunctionalGreenProcessed"
+SELECTED_SOURCE_DETAIL_LIMIT = 256
 
 THREAD_ENV_VARS = (
     "OMP_NUM_THREADS",
@@ -241,43 +256,125 @@ def _gpu_inventory():
     return devices
 
 
-def _cuda_probe():
-    result = {"available": False, "reason": None}
+def _cuda_probe(gpu_index):
+    result = {
+        "available": False,
+        "device_index": gpu_index,
+        "reason": None,
+    }
     try:
         import cupy
-    except (ImportError, OSError) as error:
-        result["reason"] = "CuPy unavailable: {}".format(error)
-        return result
+    except (ImportError, OSError, RuntimeError) as error:
+        result["reason"] = f"CuPy unavailable: {error}"
+    else:
+        try:
+            device_count = int(cupy.cuda.runtime.getDeviceCount())
+        except (cupy.cuda.runtime.CUDARuntimeError, RuntimeError) as error:
+            result["reason"] = f"CuPy CUDA runtime unavailable: {error}"
+        else:
+            result.update(
+                {
+                    "available": gpu_index < device_count,
+                    "device_count": device_count,
+                    "cupy_version": getattr(cupy, "__version__", None),
+                }
+            )
+            if gpu_index >= device_count:
+                result["reason"] = (
+                    f"CUDA device index {gpu_index} is unavailable; {device_count} devices are visible"
+                )
     try:
         import cuml
-    except (ImportError, OSError) as error:
-        result["reason"] = "cuML unavailable: {}".format(error)
-        return result
+    except (ImportError, OSError, RuntimeError) as error:
+        result["cuml_reason"] = str(error)
+    else:
+        result["cuml_version"] = getattr(cuml, "__version__", None)
     try:
         import torch
-    except (ImportError, OSError) as error:
-        result["reason"] = "PyTorch unavailable: {}".format(error)
-        return result
-    try:
-        device_count = int(cupy.cuda.runtime.getDeviceCount())
-    except (cupy.cuda.runtime.CUDARuntimeError, RuntimeError) as error:
-        result["reason"] = "CuPy CUDA runtime unavailable: {}".format(error)
-        return result
-    if not torch.cuda.is_available():
-        result["reason"] = "PyTorch reports CUDA unavailable"
-        return result
-    result.update(
-        {
-            "available": device_count > 0,
-            "device_count": device_count,
-            "cupy_version": getattr(cupy, "__version__", None),
-            "cuml_version": getattr(cuml, "__version__", None),
-            "torch_version": getattr(torch, "__version__", None),
-        }
-    )
-    if device_count == 0:
-        result["reason"] = "CUDA reported no visible devices"
+    except (ImportError, OSError, RuntimeError) as error:
+        result["torch_reason"] = str(error)
+    else:
+        torch_available = bool(torch.cuda.is_available())
+        result.update(
+            {
+                "torch_cuda_available": torch_available,
+                "torch_device_count": int(torch.cuda.device_count())
+                if torch_available
+                else 0,
+                "torch_version": getattr(torch, "__version__", None),
+            }
+        )
     return result
+
+
+def _resolve_transfer_backend(backend, gpu_index):
+    if backend == "cpu":
+        return "cpu"
+    try:
+        import cupy
+
+        device_count = int(cupy.cuda.runtime.getDeviceCount())
+    except (ImportError, OSError, RuntimeError) as error:
+        if backend == "cuda":
+            raise RuntimeError(f"CUDA transfer backend is unavailable: {error}")
+        return "cpu"
+    if gpu_index < device_count:
+        return "cuda"
+    if backend == "cuda":
+        raise RuntimeError(
+            f"CUDA device index {gpu_index} is unavailable; {device_count} devices are visible"
+        )
+    return "cpu"
+
+
+def _resolve_workload_backends(
+    backend, workloads, consistency_map, regression_kwargs, gpu_index
+):
+    neural_backends.validate_backend(backend)
+    resolved = {}
+    ridge_backend = None
+    percentile_backend = None
+
+    for workload in workloads:
+        if workload == "transfer":
+            resolved[workload] = _resolve_transfer_backend(backend, gpu_index)
+            continue
+        if ridge_backend is None:
+            ridge_backend = neural_backends.resolve_backend(
+                backend, "Ridge", regression_kwargs
+            )
+        needs_percentile = workload == "percentile" or (
+            workload == "consistency" and consistency_map == "percentile"
+        )
+        if needs_percentile:
+            if percentile_backend is None:
+                percentile_backend = ridge_backend
+                if percentile_backend == "cuda":
+                    percentile_backend = neural_backends.resolve_torch_backend(backend)
+            resolved[workload] = percentile_backend
+        else:
+            resolved[workload] = ridge_backend
+    return resolved
+
+
+def _select_cuda_device(gpu_index, require_torch):
+    if require_torch:
+        import torch
+
+        if gpu_index >= torch.cuda.device_count():
+            raise ValueError(
+                f"PyTorch CUDA device index {gpu_index} is unavailable; {torch.cuda.device_count()} devices are visible"
+            )
+        torch.cuda.set_device(gpu_index)
+
+    import cupy
+
+    device_count = int(cupy.cuda.runtime.getDeviceCount())
+    if gpu_index >= device_count:
+        raise ValueError(
+            f"CUDA device index {gpu_index} is unavailable; {device_count} devices are visible"
+        )
+    cupy.cuda.Device(gpu_index).use()
 
 
 class _GpuReader:
@@ -473,16 +570,16 @@ def _synchronize(effective_backend):
     if effective_backend != "cuda":
         return
     try:
-        import cupy
-
-        cupy.cuda.get_current_stream().synchronize()
-    except (ImportError, RuntimeError):
-        pass
-    try:
         import torch
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
+    except (ImportError, RuntimeError):
+        pass
+    try:
+        import cupy
+
+        cupy.cuda.get_current_stream().synchronize()
     except (ImportError, RuntimeError):
         pass
 
@@ -568,6 +665,373 @@ def make_correlated_data(config, seed, dtype):
     return source.astype(dtype), target.astype(dtype)
 
 
+def _path_record(path):
+    path = Path(path).resolve()
+    stat = path.stat()
+    return {
+        "path": str(path),
+        "size_bytes": int(stat.st_size),
+        "mtime_ns": int(stat.st_mtime_ns),
+    }
+
+
+def _dandiset_record(root):
+    path = Path(root) / "dandiset.yaml"
+    if not path.is_file():
+        return None
+    contents = _read_text(path)
+    if contents is None:
+        raise ValueError(f"could not read dandiset metadata: {path}")
+    identifier = re.search(r"^identifier:\s*(\S+)", contents, flags=re.MULTILINE)
+    version = re.search(r"^version:\s*(\S+)", contents, flags=re.MULTILINE)
+    doi = re.search(r"https://doi\.org/(10\.48324/dandi\.[^\s]+)", contents)
+    return {
+        "file": _path_record(path),
+        "identifier": identifier.group(1) if identifier else None,
+        "version": version.group(1) if version else None,
+        "doi": doi.group(1) if doi else None,
+    }
+
+
+def _nwb_for_fly(root, fly_id):
+    number = fly_id.split("_", 1)[-1]
+    pattern = f"sub-fly-{number}/sub-fly-*_ses-*_behavior+image+ophys.nwb"
+    matches = sorted(Path(root).glob(pattern))
+    if not matches:
+        raise ValueError(f"no NWB file found for {fly_id} under {root}")
+    if len(matches) > 1:
+        raise ValueError(f"multiple NWB files found for {fly_id} under {root}")
+    return matches[0]
+
+
+def _load_neural_timestamps(nwb_path):
+    with h5py.File(str(nwb_path), "r") as nwb:
+        if NEURAL_SERIES_PATH not in nwb:
+            raise ValueError(f"NWB file {nwb_path} is missing {NEURAL_SERIES_PATH}")
+        series = nwb[NEURAL_SERIES_PATH]
+        if "data" not in series:
+            raise ValueError("NWB neural series is missing its data array")
+        length = int(series["data"].shape[0])
+        if length < 2:
+            raise ValueError("NWB neural series must contain at least two samples")
+        if "timestamps" in series:
+            timestamps = np.asarray(series["timestamps"], dtype=np.float64)
+            storage = "explicit"
+            starting_time = None
+            rate = None
+        else:
+            if "starting_time" not in series:
+                raise ValueError("NWB neural series has no timestamps or starting_time")
+            starting = series["starting_time"]
+            if "rate" not in starting.attrs:
+                raise ValueError("NWB neural starting_time has no rate attribute")
+            starting_time = float(starting[()])
+            rate = float(starting.attrs["rate"])
+            if rate <= 0:
+                raise ValueError("NWB neural sampling rate must be positive")
+            timestamps = starting_time + np.arange(length, dtype=np.float64) / rate
+            storage = "implicit"
+    if timestamps.shape != (length,):
+        raise ValueError("NWB neural timestamps and data have different lengths")
+    if not np.isfinite(timestamps).all() or not np.all(np.diff(timestamps) > 0):
+        raise ValueError("NWB neural timestamps must be finite and increasing")
+    return timestamps, {
+        "file": _path_record(nwb_path),
+        "series_path": NEURAL_SERIES_PATH,
+        "timestamp_storage": storage,
+        "samples": length,
+        "starting_time": starting_time,
+        "rate": rate,
+    }
+
+
+def _event_files(root, fly_id, direction):
+    pilot = Path(root) / "inter_animal_consistency" / "two_fly_pilot"
+    window = pilot / "event_tensors" / "short" / f"{fly_id}_{direction}.npz"
+    bouts = pilot / "events" / f"{fly_id}_turn_bouts.csv"
+    return window, bouts
+
+
+def _historical_event_times(path, direction):
+    with open(str(path), "r", newline="") as stream:
+        rows = csv.DictReader(stream)
+        if rows.fieldnames is None or not {
+            "direction",
+            "event_time_seconds",
+        }.issubset(rows.fieldnames):
+            raise ValueError(f"event CSV is missing required columns: {path}")
+        values = [
+            float(row["event_time_seconds"])
+            for row in rows
+            if row["direction"] == direction
+        ]
+    return np.asarray(values, dtype=np.float64)
+
+
+def _load_events(root, fly_id, direction, event_source):
+    if event_source not in ("validated", "historical"):
+        raise ValueError(f"unknown event source: {event_source}")
+    window_path, bouts_path = _event_files(root, fly_id, direction)
+    if not window_path.is_file():
+        raise ValueError(f"event window does not exist: {window_path}")
+    with np.load(str(window_path), allow_pickle=False) as window:
+        missing = {"event_times", "relative_times"}.difference(window.files)
+        if missing:
+            raise ValueError(
+                "event window is missing arrays: {}".format(", ".join(sorted(missing)))
+            )
+        relative_times = np.asarray(window["relative_times"], dtype=np.float64)
+        if event_source == "validated":
+            event_times = np.asarray(window["event_times"], dtype=np.float64)
+        else:
+            if not bouts_path.is_file():
+                raise ValueError(f"event CSV does not exist: {bouts_path}")
+            event_times = _historical_event_times(bouts_path, direction)
+    if event_times.size < 2:
+        raise ValueError(f"{fly_id} has fewer than two {direction} events")
+    if relative_times.size < 2:
+        raise ValueError("event window must contain at least two relative times")
+    if not np.isfinite(event_times).all() or not np.isfinite(relative_times).all():
+        raise ValueError("event times must be finite")
+    provenance = {
+        "event_source": event_source,
+        "event_count": int(event_times.size),
+        "window_file": _path_record(window_path),
+    }
+    if event_source == "historical":
+        provenance["event_file"] = _path_record(bouts_path)
+    return event_times, relative_times, provenance
+
+
+def _region_shape(roi_h5, fly_id, roi_names):
+    shapes = []
+    with h5py.File(str(roi_h5), "r") as roi_file:
+        if fly_id not in roi_file:
+            raise ValueError(f"ROI HDF5 has no group for {fly_id}")
+        group = roi_file[fly_id]
+        for name in roi_names:
+            if name not in group:
+                raise ValueError(f"ROI HDF5 has no dataset {fly_id}/{name}")
+            dataset = group[name]
+            if dataset.ndim != 2 or dataset.shape[1] < 1:
+                raise ValueError(f"ROI dataset {fly_id}/{name} must be time by voxel")
+            shapes.append((name, int(dataset.shape[0]), int(dataset.shape[1])))
+    timepoints = {shape[1] for shape in shapes}
+    if len(timepoints) != 1:
+        raise ValueError(f"ROI datasets for {fly_id} have different lengths")
+    return shapes
+
+
+def _target_indices(total, limit):
+    if limit is None or limit == total:
+        return np.arange(total, dtype=np.int64), None
+    if limit < 1 or limit > total:
+        raise ValueError(f"target limit must be between 1 and {total}")
+    selected = np.floor(np.linspace(0, total - 1, limit)).astype(np.int64)
+    return selected, selected.tolist()
+
+
+def _interpolation_coordinates(timestamps, event_times, relative_times, dtype):
+    queries = (event_times[:, None] + relative_times[None, :]).reshape(-1)
+    before_start = queries < timestamps[0]
+    after_end = queries > timestamps[-1]
+    clamped = before_start | after_end
+    upper = np.searchsorted(timestamps, queries, side="right")
+    upper = np.clip(upper, 1, timestamps.size - 1)
+    lower = upper - 1
+    weights = (queries - timestamps[lower]) / (timestamps[upper] - timestamps[lower])
+    weights = np.asarray(np.clip(weights, 0, 1), dtype=dtype)
+    clamped_events = clamped.reshape(event_times.size, relative_times.size).any(axis=1)
+    return (
+        lower,
+        upper,
+        weights,
+        {
+            "query_count": int(queries.size),
+            "clamped_query_count": int(clamped.sum()),
+            "before_start_count": int(before_start.sum()),
+            "after_end_count": int(after_end.sum()),
+            "events_with_clamped_queries": int(clamped_events.sum()),
+        },
+    )
+
+
+def _read_roi_columns(dataset, columns, dtype):
+    if columns.size == 1 or np.all(np.diff(columns) == 1):
+        values = dataset[:, int(columns[0]) : int(columns[-1]) + 1]
+    else:
+        values = dataset[:, columns]
+    return np.asarray(values, dtype=dtype)
+
+
+def _interpolate_region(
+    roi_h5,
+    fly_id,
+    roi_names,
+    timestamps,
+    event_times,
+    relative_times,
+    dtype,
+    selected_indices=None,
+):
+    shapes = _region_shape(roi_h5, fly_id, roi_names)
+    if shapes[0][1] != timestamps.size:
+        raise ValueError("ROI activity and NWB timestamps have different lengths")
+    total = sum(shape[2] for shape in shapes)
+    if selected_indices is None:
+        selected_indices = np.arange(total, dtype=np.int64)
+    selected_indices = np.asarray(selected_indices, dtype=np.int64)
+    if selected_indices.ndim != 1 or selected_indices.size < 1:
+        raise ValueError("selected target indices must be a non-empty vector")
+    if selected_indices[0] < 0 or selected_indices[-1] >= total:
+        raise ValueError("selected target index is outside the region")
+    if not np.all(np.diff(selected_indices) > 0):
+        raise ValueError("selected target indices must be increasing and unique")
+
+    lower, upper, weights, interpolation_info = _interpolation_coordinates(
+        timestamps, event_times, relative_times, dtype
+    )
+    output = np.empty(
+        (event_times.size, relative_times.size, selected_indices.size), dtype=dtype
+    )
+    flat = output.reshape(-1, selected_indices.size)
+    destination = 0
+    region_start = 0
+    with h5py.File(str(roi_h5), "r") as roi_file:
+        group = roi_file[fly_id]
+        for name, _, width in shapes:
+            mask = (selected_indices >= region_start) & (
+                selected_indices < region_start + width
+            )
+            local = selected_indices[mask] - region_start
+            dataset = group[name]
+            block_size = dataset.chunks[1] if dataset.chunks is not None else 512
+            block_size = max(1, min(int(block_size), 2048))
+            for start in range(0, local.size, block_size):
+                columns = local[start : start + block_size]
+                traces = _read_roi_columns(dataset, columns, dtype)
+                values = traces[lower]
+                values += (traces[upper] - values) * weights[:, None]
+                stop = destination + columns.size
+                flat[:, destination:stop] = values
+                destination = stop
+            region_start += width
+    if destination != selected_indices.size:
+        raise ValueError("failed to load every selected ROI column")
+    return output, shapes, interpolation_info
+
+
+def _validate_benchmark_arrays(source, target):
+    if source.ndim not in (2, 3):
+        raise ValueError("source must have 2 or 3 dimensions")
+    if target.ndim != 3:
+        raise ValueError("target must have shape trials x stimuli x targets")
+    if source.ndim == 3 and source.shape[0] < 2:
+        raise ValueError("trial-based source must contain at least two trials")
+    if target.shape[0] < 2:
+        raise ValueError("target must contain at least two trials")
+    if source.shape[-2] != target.shape[1]:
+        raise ValueError("source and target stimulus dimensions differ")
+    if target.shape[1] < 2 or source.shape[-1] < 1 or target.shape[-1] < 1:
+        raise ValueError("arrays have an empty feature or stimulus dimension")
+    if not np.isfinite(source).all() or not np.isfinite(target).all():
+        raise ValueError("arrays must contain only finite values")
+
+
+def load_fly_data(
+    root,
+    source_fly,
+    target_fly,
+    direction,
+    region,
+    event_source,
+    dtype,
+    target_limit=None,
+):
+    started = time.perf_counter()
+    root = Path(root).resolve()
+    roi_h5 = root / "roi_activity.h5"
+    if not roi_h5.is_file():
+        raise ValueError(f"ROI HDF5 does not exist: {roi_h5}")
+    if region not in REGION_ROIS:
+        raise ValueError(f"unsupported region: {region}")
+    roi_names = REGION_ROIS[region]
+    source_events, source_relative, source_event_info = _load_events(
+        root, source_fly, direction, event_source
+    )
+    target_events, target_relative, target_event_info = _load_events(
+        root, target_fly, direction, event_source
+    )
+    if not np.array_equal(source_relative, target_relative):
+        raise ValueError("source and target use different relative-time grids")
+
+    source_nwb = _nwb_for_fly(root, source_fly)
+    target_nwb = _nwb_for_fly(root, target_fly)
+    source_timestamps, source_nwb_info = _load_neural_timestamps(source_nwb)
+    target_timestamps, target_nwb_info = _load_neural_timestamps(target_nwb)
+    target_shapes = _region_shape(roi_h5, target_fly, roi_names)
+    full_target_count = sum(shape[2] for shape in target_shapes)
+    selected_targets, selected_target_list = _target_indices(
+        full_target_count, target_limit
+    )
+
+    source, source_shapes, source_interpolation = _interpolate_region(
+        roi_h5,
+        source_fly,
+        roi_names,
+        source_timestamps,
+        source_events,
+        source_relative,
+        dtype,
+    )
+    target, _, target_interpolation = _interpolate_region(
+        roi_h5,
+        target_fly,
+        roi_names,
+        target_timestamps,
+        target_events,
+        target_relative,
+        dtype,
+        selected_indices=selected_targets,
+    )
+    _validate_benchmark_arrays(source, target)
+    provenance = {
+        "root": str(root),
+        "dandiset": _dandiset_record(root),
+        "roi_h5": _path_record(roi_h5),
+        "source_fly": source_fly,
+        "target_fly": target_fly,
+        "direction": direction,
+        "region": region,
+        "roi_order": list(roi_names),
+        "source_roi_shapes": [list(shape) for shape in source_shapes],
+        "target_roi_shapes": [list(shape) for shape in target_shapes],
+        "source_events": source_event_info,
+        "target_events": target_event_info,
+        "source_nwb": source_nwb_info,
+        "target_nwb": target_nwb_info,
+        "relative_times": {
+            "count": int(source_relative.size),
+            "start": float(source_relative[0]),
+            "stop": float(source_relative[-1]),
+        },
+        "target_selection": {
+            "is_slice": selected_target_list is not None,
+            "full_count": full_target_count,
+            "selected_count": int(selected_targets.size),
+            "strategy": "evenly_spaced" if selected_target_list is not None else "all",
+            "indices": selected_target_list,
+        },
+        "interpolation": "linear with endpoint clamping",
+        "interpolation_queries": {
+            "source": source_interpolation,
+            "target": target_interpolation,
+        },
+        "preparation_seconds": time.perf_counter() - started,
+    }
+    return source, target, provenance
+
+
 def load_fixture(path, dtype):
     with np.load(path, allow_pickle=False) as fixture:
         missing = {"source", "target"}.difference(fixture.files)
@@ -577,20 +1041,39 @@ def load_fixture(path, dtype):
             )
         source = np.asarray(fixture["source"], dtype=dtype)
         target = np.asarray(fixture["target"], dtype=dtype)
-    if source.ndim not in (2, 3):
-        raise ValueError("fixture source must have 2 or 3 dimensions")
-    if target.ndim != 3:
-        raise ValueError("fixture target must have shape trials x stimuli x targets")
-    source_stimuli = source.shape[-2]
-    if source_stimuli != target.shape[1]:
-        raise ValueError("fixture source and target stimulus dimensions differ")
-    if target.shape[0] < 2:
-        raise ValueError("fixture target must contain at least two trials")
-    if target.shape[1] < 2 or source.shape[-1] < 1 or target.shape[-1] < 1:
-        raise ValueError("fixture arrays have an empty feature or stimulus dimension")
-    if not np.isfinite(source).all() or not np.isfinite(target).all():
-        raise ValueError("fixture arrays must contain only finite values")
+    _validate_benchmark_arrays(source, target)
     return source, target
+
+
+def make_train_test_splits(strategy, num_stimuli, num_splits, train_frac, seed):
+    if strategy == "random":
+        if math.ceil(train_frac * num_stimuli) >= num_stimuli:
+            raise ValueError("train_frac leaves no samples for prediction")
+        return generate_train_test_splits(
+            num_stim=num_stimuli,
+            num_splits=num_splits,
+            train_frac=train_frac,
+            start_seed=seed,
+        )
+    if num_splits < 2:
+        raise ValueError("blocked splits require at least two splits")
+    if num_stimuli < num_splits:
+        raise ValueError("blocked splits require at least one stimulus per split")
+    indices = np.arange(num_stimuli, dtype=np.int64)
+    folds = np.array_split(indices, num_splits)
+    return [
+        {
+            "train": np.concatenate(
+                [
+                    block
+                    for block_index, block in enumerate(folds)
+                    if block_index != fold
+                ]
+            ),
+            "test": folds[fold],
+        }
+        for fold in range(num_splits)
+    ]
 
 
 def _averaged_source(source):
@@ -614,6 +1097,75 @@ def _prediction_summary(prediction):
         "mean": float(np.asarray(prediction, dtype=np.float64).mean()),
         "std": float(np.asarray(prediction, dtype=np.float64).std()),
     }
+
+
+def _selected_source_report(counts):
+    counts = np.asarray(counts, dtype=np.int64)
+    report = {
+        "selected_source_count_summary": {
+            "target_count": int(counts.size),
+            "minimum": int(counts.min()),
+            "maximum": int(counts.max()),
+            "mean": float(counts.mean()),
+            "median": float(np.median(counts)),
+            "total": int(counts.sum()),
+            "per_target_values_recorded": counts.size <= SELECTED_SOURCE_DETAIL_LIMIT,
+        }
+    }
+    if counts.size <= SELECTED_SOURCE_DETAIL_LIMIT:
+        report["selected_sources_per_target"] = counts.tolist()
+    return report
+
+
+def _finite_summary(values):
+    values = np.asarray(values, dtype=np.float64)
+    finite = values[np.isfinite(values)]
+    return {
+        "finite_count": int(finite.size),
+        "total_count": int(values.size),
+        "finite_fraction": float(finite.size) / float(values.size),
+        "mean": float(finite.mean()) if finite.size else None,
+        "median": float(np.median(finite)) if finite.size else None,
+    }
+
+
+def _consistency_metric_summary(metric):
+    metric = np.asarray(metric, dtype=np.float64)
+    if metric.ndim != 3:
+        raise ValueError("consistency metrics must be bootstrap by fold by target")
+    finite = np.isfinite(metric)
+    counts = finite.sum(axis=0)
+    bootstrap_means = np.full(counts.shape, np.nan, dtype=np.float64)
+    np.divide(
+        np.where(finite, metric, 0).sum(axis=0),
+        counts,
+        out=bootstrap_means,
+        where=counts > 0,
+    )
+    by_fold = []
+    for values in bootstrap_means:
+        values = values[np.isfinite(values)]
+        by_fold.append(float(np.median(values)) if values.size else None)
+    finite_folds = [value for value in by_fold if value is not None]
+    return {
+        "bootstrap_mean_target_median_by_fold": by_fold,
+        "median_across_folds": (
+            float(np.median(finite_folds)) if finite_folds else None
+        ),
+        "global": _finite_summary(metric),
+    }
+
+
+def _consistency_metric_summaries(result):
+    summaries = {
+        "method": "bootstrap nanmean per target, then target nanmedian per fold"
+    }
+    for split in ("train", "test"):
+        summaries[split] = {
+            name: _consistency_metric_summary(metric)
+            for name, metric in sorted(result[split].items())
+        }
+    return summaries
 
 
 def benchmark_ridge(
@@ -673,6 +1225,8 @@ def benchmark_percentile(
         PercentileNeuralMap, backend, effective_backend, regression_kwargs
     )
     options.update({"percentile": percentile, "identity": False})
+    if effective_backend == "cuda":
+        options["store_correlations"] = False
     monitor = ResourceMonitor(monitor_interval, effective_backend == "cuda", gpu_index)
     monitor.start()
     try:
@@ -691,7 +1245,7 @@ def benchmark_percentile(
         resources = monitor.stop()
     selection_fit = mapper.source_selection_seconds["fit"]
     ridge_fit = max(0.0, fit_seconds - mapper.correlation_seconds - selection_fit)
-    return {
+    result = {
         "correlation_seconds": mapper.correlation_seconds,
         "source_selection_seconds": selection_fit,
         "ridge_fit_seconds": ridge_fit,
@@ -701,11 +1255,12 @@ def benchmark_percentile(
         "total_seconds": total_seconds,
         "ridge_fit_measurement": "fit minus correlation and source selection",
         "percentile": percentile,
-        "selected_sources_per_target": list(mapper._num_source_units),
         "ridge_parameters": dict(regression_kwargs),
         "prediction": _prediction_summary(prediction),
         "resources": resources,
     }
+    result.update(_selected_source_report(mapper._num_source_units))
+    return result
 
 
 def benchmark_consistency(
@@ -720,11 +1275,22 @@ def benchmark_consistency(
     seed,
     monitor_interval,
     gpu_index,
+    consistency_map,
+    percentile,
 ):
-    mapper_options = _mapper_options(
-        SKLinearNeuralMap, backend, effective_backend, regression_kwargs
-    )
-    map_kwargs = {"map_type": "sklinear", "map_kwargs": mapper_options}
+    if consistency_map == "ridge":
+        mapper_options = _mapper_options(
+            SKLinearNeuralMap, backend, effective_backend, regression_kwargs
+        )
+        map_kwargs = {"map_type": "sklinear", "map_kwargs": mapper_options}
+    else:
+        mapper_options = _mapper_options(
+            PercentileNeuralMap, backend, effective_backend, regression_kwargs
+        )
+        mapper_options.update({"percentile": percentile, "identity": False})
+        if effective_backend == "cuda":
+            mapper_options["store_correlations"] = False
+        map_kwargs = {"map_type": "percentile", "map_kwargs": mapper_options}
     monitor = ResourceMonitor(monitor_interval, effective_backend == "cuda", gpu_index)
     monitor.start()
     try:
@@ -743,17 +1309,20 @@ def benchmark_consistency(
         )
     finally:
         resources = monitor.stop()
+    summaries = _consistency_metric_summaries(result)
+    primary = summaries["test"]["r_xy_n_sb"]
     metric = np.asarray(result["test"]["r_xy_n_sb"])
-    finite = metric[np.isfinite(metric)]
     return {
         "total_seconds": total_seconds,
         "bootstrap_iterations": bootstrap_iters,
         "train_test_splits": len(splits),
         "workers": workers,
         "metric": "pearsonr",
+        "mapping": map_kwargs,
         "result_shape": list(metric.shape),
-        "finite_result_fraction": float(finite.size) / float(metric.size),
-        "mean_test_r_xy_n_sb": float(finite.mean()) if finite.size else None,
+        "metric_summaries": summaries,
+        "finite_result_fraction": primary["global"]["finite_fraction"],
+        "mean_test_r_xy_n_sb": primary["global"]["mean"],
         "ridge_parameters": dict(regression_kwargs),
         "resources": resources,
     }
@@ -844,15 +1413,43 @@ def _optional_library_versions():
     return versions
 
 
+def _git_metadata():
+    root = Path(__file__).resolve().parents[1]
+
+    def git_output(*arguments):
+        try:
+            completed = subprocess.run(  # noqa: UP022 -- Python 3.6 support
+                ["git", "-C", str(root)] + list(arguments),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,  # noqa: UP021 -- Python 3.6 support
+                check=False,
+            )
+        except OSError:
+            return None
+        if completed.returncode != 0:
+            return None
+        return completed.stdout.strip()
+
+    commit = git_output("rev-parse", "HEAD")
+    status = git_output("status", "--porcelain")
+    return {
+        "root": str(root),
+        "commit": commit,
+        "dirty": bool(status) if status is not None else None,
+    }
+
+
 def _metadata(args, cuda_probe):
     libraries = {
+        "h5py": h5py.__version__,
         "numpy": np.__version__,
         "scipy": scipy.__version__,
         "scikit_learn": sklearn.__version__,
     }
     libraries.update(_optional_library_versions())
     for library in ("torch", "cupy", "cuml"):
-        version = cuda_probe.get("{}_version".format(library))
+        version = cuda_probe.get(f"{library}_version")
         if version is not None:
             libraries[library] = str(version)
     return {
@@ -873,10 +1470,119 @@ def _metadata(args, cuda_probe):
             },
         },
         "libraries": libraries,
+        "repository": _git_metadata(),
         "cuda_probe": cuda_probe,
         "gpu_devices": _gpu_inventory(),
         "process_peak_rss_bytes_at_start": _peak_rss_bytes(),
     }
+
+
+def _comparison_identity(result):
+    dataset = result["dataset"]
+    provenance = dataset.get("provenance") or {}
+    dandiset = provenance.get("dandiset") or {}
+    source_events = provenance.get("source_events") or {}
+    return {
+        "seed": result["seed"],
+        "split_seed": result["split_seed"],
+        "config": result["config"],
+        "dataset_origin": dataset["origin"],
+        "source": dataset["source"],
+        "target": dataset["target"],
+        "train_test_indices": dataset.get("train_test_indices"),
+        "dandiset_identifier": dandiset.get("identifier"),
+        "dandiset_version": dandiset.get("version"),
+        "source_fly": provenance.get("source_fly"),
+        "target_fly": provenance.get("target_fly"),
+        "direction": provenance.get("direction"),
+        "region": provenance.get("region"),
+        "event_source": source_events.get("event_source"),
+        "target_selection": provenance.get("target_selection"),
+    }
+
+
+def _reference_timing_comparison(current, reference):
+    comparisons = {}
+    common = set(current["benchmarks"]).intersection(reference["benchmarks"])
+    for name in sorted(common):
+        current_seconds = current["benchmarks"][name].get("total_seconds")
+        reference_seconds = reference["benchmarks"][name].get("total_seconds")
+        if current_seconds is None or reference_seconds is None:
+            continue
+        if (
+            current_seconds <= 0
+            or not np.isfinite([current_seconds, reference_seconds]).all()
+        ):
+            continue
+        comparisons[name] = {
+            "current_seconds": float(current_seconds),
+            "reference_seconds": float(reference_seconds),
+            "speedup": float(reference_seconds) / float(current_seconds),
+        }
+    return comparisons
+
+
+def _reference_metric_comparison(current, reference):
+    name = WORKLOAD_KEYS["consistency"]
+    current_summary = current["benchmarks"].get(name, {}).get("metric_summaries")
+    reference_summary = reference["benchmarks"].get(name, {}).get("metric_summaries")
+    if current_summary is None or reference_summary is None:
+        return {}
+    comparisons = {}
+    for split in ("train", "test"):
+        comparisons[split] = {}
+        common = set(current_summary[split]).intersection(reference_summary[split])
+        for metric in sorted(common):
+            current_value = current_summary[split][metric]["median_across_folds"]
+            reference_value = reference_summary[split][metric]["median_across_folds"]
+            if current_value is None or reference_value is None:
+                continue
+            difference = float(current_value) - float(reference_value)
+            comparisons[split][metric] = {
+                "current": float(current_value),
+                "reference": float(reference_value),
+                "difference": difference,
+                "absolute_difference": abs(difference),
+            }
+    return comparisons
+
+
+def _reference_comparison(current, path):
+    try:
+        with open(path, "r") as stream:
+            reference = json.load(stream)
+    except (OSError, ValueError) as error:
+        raise ValueError(f"could not read reference result {path}: {error}")
+    if not isinstance(reference, dict) or "benchmarks" not in reference:
+        raise ValueError("reference result is not a benchmark result")
+
+    current_identity = _comparison_identity(current)
+    try:
+        reference_identity = _comparison_identity(reference)
+    except (KeyError, TypeError) as error:
+        raise ValueError(f"reference result lacks comparison metadata: {error}")
+    mismatches = [
+        name
+        for name, value in current_identity.items()
+        if value != reference_identity[name]
+    ]
+    comparison = {
+        "file": _path_record(path),
+        "backend_effective": reference.get("backend_effective"),
+        "configuration_matches": not mismatches,
+        "mismatched_fields": mismatches,
+        "speedup_definition": "reference seconds divided by current seconds",
+        "benchmark_total_seconds": {},
+        "consistency_metrics": {},
+    }
+    if not mismatches:
+        comparison["benchmark_total_seconds"] = _reference_timing_comparison(
+            current, reference
+        )
+        comparison["consistency_metrics"] = _reference_metric_comparison(
+            current, reference
+        )
+    return comparison
 
 
 def _suite_config(args):
@@ -904,7 +1610,7 @@ def _suite_config(args):
     return config
 
 
-def _validate_config(config):
+def _validate_config(config, synthetic):
     positive = (
         "stimuli",
         "sources",
@@ -922,10 +1628,11 @@ def _validate_config(config):
         raise ValueError("stimuli must be at least 4")
     if config["trials"] < 2:
         raise ValueError("trials must be at least 2")
-    if config["latent_dim"] > config["sources"]:
-        raise ValueError("latent_dim cannot exceed sources")
-    if config["signal_sources"] > config["sources"]:
-        raise ValueError("signal_sources cannot exceed sources")
+    if synthetic:
+        if config["latent_dim"] > config["sources"]:
+            raise ValueError("latent_dim cannot exceed sources")
+        if config["signal_sources"] > config["sources"]:
+            raise ValueError("signal_sources cannot exceed sources")
     if not 0 < config["train_frac"] < 1:
         raise ValueError("train_frac must be between 0 and 1")
     if not 0 <= config["percentile"] <= 100:
@@ -934,62 +1641,56 @@ def _validate_config(config):
 
 def run_benchmarks(args):
     config = _suite_config(args)
-    _validate_config(config)
     dtype = np.dtype(args.dtype)
-    if args.fixture:
-        source, target = load_fixture(args.fixture, dtype)
-        config.update(
-            {
-                "stimuli": target.shape[1],
-                "sources": source.shape[-1],
-                "targets": target.shape[-1],
-                "trials": target.shape[0],
-            }
+    if args.fixture and args.fly_data_root:
+        raise ValueError("--fixture and --fly-data-root are mutually exclusive")
+    if args.target_limit is not None and not args.fly_data_root:
+        raise ValueError("--target-limit requires --fly-data-root")
+
+    data_provenance = None
+    if args.fly_data_root:
+        if args.region not in REGION_ROIS:
+            raise ValueError(f"unsupported region: {args.region}")
+        source, target, data_provenance = load_fly_data(
+            args.fly_data_root,
+            args.source_fly,
+            args.target_fly,
+            args.direction,
+            args.region,
+            args.event_source,
+            dtype,
+            target_limit=args.target_limit,
         )
+        data_origin = "brezovec_fly"
+    elif args.fixture:
+        source, target = load_fixture(args.fixture, dtype)
         data_origin = "fixture"
+        data_provenance = {"file": _path_record(args.fixture)}
     else:
+        _validate_config(config, synthetic=True)
         source, target = make_correlated_data(config, args.seed, dtype)
         data_origin = "correlated_synthetic"
-
-    cuda_probe = (
-        _cuda_probe()
-        if args.backend != "cpu"
-        else {
-            "available": None,
-            "reason": "not probed for CPU benchmark",
+    config.update(
+        {
+            "stimuli": target.shape[1],
+            "sources": source.shape[-1],
+            "targets": target.shape[-1],
+            "trials": target.shape[0],
+            "split_strategy": args.split_strategy,
+            "consistency_map": args.consistency_map,
         }
     )
-    if args.backend == "cuda" and not cuda_probe["available"]:
-        raise RuntimeError(
-            "CUDA backend requested but unavailable: {}".format(
-                cuda_probe.get("reason")
-            )
-        )
-    effective_backend = (
-        "cuda"
-        if args.backend == "cuda"
-        or (args.backend == "auto" and cuda_probe["available"])
-        else "cpu"
-    )
-    if effective_backend == "cuda" and args.workers != 1:
-        raise ValueError("CUDA consistency benchmarks require --workers 1")
+    _validate_config(config, synthetic=data_origin == "correlated_synthetic")
 
-    train_samples = int(math.ceil(config["train_frac"] * config["stimuli"]))
-    if train_samples >= config["stimuli"]:
-        raise ValueError("train_frac leaves no samples for standalone prediction")
+    workloads = []
+    for workload in args.workloads:
+        if workload not in WORKLOADS:
+            raise ValueError(f"unknown workload: {workload}")
+        if workload not in workloads:
+            workloads.append(workload)
+    if not workloads:
+        raise ValueError("at least one workload is required")
 
-    source_average = _averaged_source(source)
-    target_average = target.mean(axis=0)
-    splits = generate_train_test_splits(
-        num_stim=config["stimuli"],
-        num_splits=config["splits"],
-        train_frac=config["train_frac"],
-        start_seed=args.split_seed,
-    )
-    first_split = splits[0]
-    X_train = source_average[first_split["train"]]
-    Y_train = target_average[first_split["train"]]
-    X_test = source_average[first_split["test"]]
     regression_kwargs = {
         "alpha": args.alpha,
         "fit_intercept": args.fit_intercept,
@@ -997,67 +1698,151 @@ def run_benchmarks(args):
     if args.solver is not None:
         regression_kwargs["solver"] = args.solver
 
+    effective_backends = _resolve_workload_backends(
+        args.backend,
+        workloads,
+        args.consistency_map,
+        regression_kwargs,
+        args.gpu_index,
+    )
+    if (
+        "consistency" in workloads
+        and effective_backends["consistency"] == "cuda"
+        and args.workers != 1
+    ):
+        raise ValueError("CUDA consistency benchmarks require --workers 1")
+
+    cuda_workloads = [
+        workload
+        for workload, resolved in effective_backends.items()
+        if resolved == "cuda"
+    ]
+    if cuda_workloads:
+        require_torch = "percentile" in cuda_workloads or (
+            "consistency" in cuda_workloads and args.consistency_map == "percentile"
+        )
+        _select_cuda_device(args.gpu_index, require_torch)
+
+    cuda_probe = (
+        _cuda_probe(args.gpu_index)
+        if args.backend != "cpu"
+        else {
+            "available": None,
+            "device_index": args.gpu_index,
+            "reason": "not probed for CPU benchmark",
+        }
+    )
+    backend_values = set(effective_backends.values())
+    effective_backend = (
+        next(iter(backend_values)) if len(backend_values) == 1 else "mixed"
+    )
+
+    splits = make_train_test_splits(
+        args.split_strategy,
+        config["stimuli"],
+        config["splits"],
+        config["train_frac"],
+        args.split_seed,
+    )
+    first_split = splits[0]
+    source_average = None
+    target_average = None
+    X_train = None
+    Y_train = None
+    X_test = None
+    if any(name in workloads for name in ("transfer", "ridge", "percentile")):
+        source_average = _averaged_source(source)
+    if any(name in workloads for name in ("ridge", "percentile")):
+        target_average = target.mean(axis=0)
+        X_train = source_average[first_split["train"]]
+        Y_train = target_average[first_split["train"]]
+        X_test = source_average[first_split["test"]]
     result = {
         "schema_version": 1,
         "suite": args.suite,
         "backend_requested": args.backend,
         "backend_effective": effective_backend,
+        "backend_effective_by_workload": effective_backends,
         "seed": args.seed,
         "split_seed": args.split_seed,
+        "workloads": workloads,
         "config": config,
         "metadata": _metadata(args, cuda_probe),
         "dataset": {
             "origin": data_origin,
             "fixture": os.path.abspath(args.fixture) if args.fixture else None,
+            "provenance": data_provenance,
             "source": _array_summary(source),
             "target": _array_summary(target),
-            "standalone_train_samples": int(X_train.shape[0]),
-            "standalone_test_samples": int(X_test.shape[0]),
+            "split_strategy": args.split_strategy,
+            "train_test_indices": [
+                {
+                    "train": split["train"].astype(int).tolist(),
+                    "test": split["test"].astype(int).tolist(),
+                }
+                for split in splits
+            ],
+            "standalone_train_samples": int(first_split["train"].size),
+            "standalone_test_samples": int(first_split["test"].size),
         },
         "benchmarks": {},
     }
-    result["benchmarks"]["host_device_transfer"] = benchmark_transfers(
-        source_average,
-        effective_backend,
-        args.monitor_interval,
-        args.gpu_index,
-        args.transfer_repeats,
-    )
-    result["benchmarks"]["ridge_mapper"] = benchmark_ridge(
-        X_train,
-        Y_train,
-        X_test,
-        args.backend,
-        effective_backend,
-        regression_kwargs,
-        args.monitor_interval,
-        args.gpu_index,
-    )
-    result["benchmarks"]["percentile_mapper"] = benchmark_percentile(
-        X_train,
-        Y_train,
-        X_test,
-        args.backend,
-        effective_backend,
-        regression_kwargs,
-        config["percentile"],
-        args.monitor_interval,
-        args.gpu_index,
-    )
-    result["benchmarks"]["linregress_consistency"] = benchmark_consistency(
-        source,
-        target,
-        splits,
-        args.backend,
-        effective_backend,
-        regression_kwargs,
-        config["bootstrap_iters"],
-        args.workers,
-        args.seed,
-        args.monitor_interval,
-        args.gpu_index,
-    )
+    if "transfer" in workloads:
+        transfer_backend = effective_backends["transfer"]
+        result["benchmarks"][WORKLOAD_KEYS["transfer"]] = benchmark_transfers(
+            source_average,
+            transfer_backend,
+            args.monitor_interval,
+            args.gpu_index,
+            args.transfer_repeats,
+        )
+    if "ridge" in workloads:
+        ridge_backend = effective_backends["ridge"]
+        result["benchmarks"][WORKLOAD_KEYS["ridge"]] = benchmark_ridge(
+            X_train,
+            Y_train,
+            X_test,
+            ridge_backend,
+            ridge_backend,
+            regression_kwargs,
+            args.monitor_interval,
+            args.gpu_index,
+        )
+    if "percentile" in workloads:
+        percentile_backend = effective_backends["percentile"]
+        result["benchmarks"][WORKLOAD_KEYS["percentile"]] = benchmark_percentile(
+            X_train,
+            Y_train,
+            X_test,
+            percentile_backend,
+            percentile_backend,
+            regression_kwargs,
+            config["percentile"],
+            args.monitor_interval,
+            args.gpu_index,
+        )
+    if "consistency" in workloads:
+        consistency_backend = effective_backends["consistency"]
+        result["benchmarks"][WORKLOAD_KEYS["consistency"]] = benchmark_consistency(
+            source,
+            target,
+            splits,
+            consistency_backend,
+            consistency_backend,
+            regression_kwargs,
+            config["bootstrap_iters"],
+            args.workers,
+            args.seed,
+            args.monitor_interval,
+            args.gpu_index,
+            args.consistency_map,
+            config["percentile"],
+        )
     result["metadata"]["process_peak_rss_bytes_at_end"] = _peak_rss_bytes()
+    if args.reference_result:
+        result["reference_comparison"] = _reference_comparison(
+            result, args.reference_result
+        )
     return result
 
 
@@ -1068,7 +1853,26 @@ def build_parser():
     parser.add_argument("--suite", choices=sorted(SUITES), default="smoke")
     parser.add_argument("--backend", choices=("cpu", "cuda", "auto"), default="cpu")
     parser.add_argument("--fixture", help="NPZ containing source and target arrays")
+    parser.add_argument("--fly-data-root")
+    parser.add_argument("--source-fly", default="fly_087")
+    parser.add_argument("--target-fly", default="fly_089")
+    parser.add_argument("--direction", choices=("left", "right"), default="right")
+    parser.add_argument("--region", choices=sorted(REGION_ROIS), default="IPS")
+    parser.add_argument(
+        "--event-source", choices=("validated", "historical"), default="validated"
+    )
+    parser.add_argument("--target-limit", type=int)
+    parser.add_argument(
+        "--split-strategy", choices=("random", "blocked"), default="random"
+    )
+    parser.add_argument(
+        "--consistency-map", choices=("ridge", "percentile"), default="ridge"
+    )
+    parser.add_argument(
+        "--workloads", nargs="+", choices=WORKLOADS, default=list(WORKLOADS)
+    )
     parser.add_argument("--output", default="-", help="JSON path, or - for stdout")
+    parser.add_argument("--reference-result", help="prior benchmark JSON to compare")
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--split-seed", type=int, default=0)
@@ -1097,6 +1901,12 @@ def build_parser():
 
 
 def _validate_args(parser, args):
+    if args.fixture and args.fly_data_root:
+        parser.error("--fixture and --fly-data-root are mutually exclusive")
+    if args.target_limit is not None and args.target_limit < 1:
+        parser.error("--target-limit must be positive")
+    if args.target_limit is not None and not args.fly_data_root:
+        parser.error("--target-limit requires --fly-data-root")
     if args.workers == 0:
         parser.error("--workers cannot be zero")
     if args.monitor_interval <= 0:
