@@ -1,7 +1,7 @@
-from brainmodel_utils.metrics.consistency import get_linregress_consistency
 import numpy as np
 
-from utils.linregress_utils import make_splits, get_rxy_ryy_filtered
+from brainmodel_utils.metrics.consistency import get_linregress_consistency
+from brainmodel_utils.neural_mappers.utils import generate_train_test_splits
 
 np.random.seed(42)
 NUM_STIMULI = 6
@@ -36,7 +36,9 @@ def _test_get_linregress_consistency(**linregress_kwargs):
 def test_ridge():
     results = _test_get_linregress_consistency(
         metric="pearsonr",
-        splits=make_splits(0.5, num_stimuli=NUM_STIMULI),
+        splits=generate_train_test_splits(
+            num_stim=NUM_STIMULI, train_frac=0.5
+        ),
         map_kwargs={
             "map_type": "sklinear",
             "map_kwargs": {
@@ -53,13 +55,13 @@ def test_rsa():
     result = _test_get_linregress_consistency(
         metric="rsa_pearsonr",
         map_kwargs={ "map_type": "identity" },
-        splits=make_splits(0, num_stimuli=NUM_STIMULI),
+        splits=generate_train_test_splits(num_stim=NUM_STIMULI, train_frac=0),
     )
-    print(f"median rxysb: {np.nanmedian(result["test"]["r_xy_n_sb"])}")
+    print(f"median rxysb: {np.nanmedian(result['test']['r_xy_n_sb'])}")
 
     result = _test_get_linregress_consistency(
         metric="rsa_spearmanr",
         map_kwargs={ "map_type": "identity" },
-        splits=make_splits(0, num_stimuli=NUM_STIMULI),
+        splits=generate_train_test_splits(num_stim=NUM_STIMULI, train_frac=0),
     )
-    print(f"median rxysb: {np.nanmedian(result["test"]["r_xy_n_sb"])}")
+    print(f"median rxysb: {np.nanmedian(result['test']['r_xy_n_sb'])}")
