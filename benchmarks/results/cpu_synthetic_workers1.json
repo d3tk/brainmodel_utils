@@ -1,0 +1,290 @@
+{
+  "backend_effective": "cpu",
+  "backend_requested": "cpu",
+  "benchmarks": {
+    "host_device_transfer": {
+      "bytes_per_direction": 262144,
+      "measured": false,
+      "reason": "effective backend is CPU",
+      "repeats": 3
+    },
+    "linregress_consistency": {
+      "bootstrap_iterations": 5,
+      "finite_result_fraction": 1.0,
+      "mean_test_r_xy_n_sb": 0.9840939044952393,
+      "metric": "pearsonr",
+      "resources": {
+        "cpu": {
+          "children_system_seconds": 0.0,
+          "children_user_seconds": 0.0,
+          "process_tree_seconds": 0.53,
+          "resource_total_seconds": 0.5271330000000001,
+          "scope": "sampled_process_tree_or_resource_max",
+          "self_system_seconds": 6.0000000000060005e-06,
+          "self_user_seconds": 0.527127,
+          "total_seconds": 0.53,
+          "utilization_percent": 92.95285130947067
+        },
+        "gpu": {
+          "device_index": null,
+          "error": null,
+          "memory_scope": "whole_device",
+          "memory_start_bytes": null,
+          "method": null,
+          "peak_memory_increase_bytes": null,
+          "peak_memory_used_bytes": null,
+          "peak_utilization_percent": null,
+          "sampled": false,
+          "samples": 0
+        },
+        "memory_scope": "driver_and_descendant_processes",
+        "monitor_error": null,
+        "peak_child_rss_bytes": 0,
+        "peak_driver_rss_bytes": 202096640,
+        "peak_rss_bytes": 202096640,
+        "peak_rss_increase_bytes": 413696,
+        "rss_start_bytes": 201682944,
+        "wall_seconds": 0.5701815410002382
+      },
+      "result_shape": [
+        5,
+        3,
+        32
+      ],
+      "ridge_parameters": {
+        "alpha": 1.0,
+        "fit_intercept": true
+      },
+      "total_seconds": 0.5697303729998566,
+      "train_test_splits": 3,
+      "workers": 1
+    },
+    "percentile_mapper": {
+      "correlation_seconds": 0.00016490100006194552,
+      "fit_seconds": 0.014657824999630975,
+      "percentile": 95.0,
+      "predict_seconds": 0.0027271489998383913,
+      "predict_source_selection_seconds": 0.0015279059998647426,
+      "prediction": {
+        "checksum": 32.54072583373636,
+        "mean": 0.019939170241260025,
+        "shape": [
+          51,
+          32
+        ],
+        "std": 0.8388977540482883
+      },
+      "resources": {
+        "cpu": {
+          "children_system_seconds": 0.0,
+          "children_user_seconds": 0.0,
+          "process_tree_seconds": 0.02,
+          "resource_total_seconds": 0.016427000000000067,
+          "scope": "sampled_process_tree_or_resource_max",
+          "self_system_seconds": 0.0012980000000000075,
+          "self_user_seconds": 0.015129000000000059,
+          "total_seconds": 0.02,
+          "utilization_percent": 112.11123677105347
+        },
+        "gpu": {
+          "device_index": null,
+          "error": null,
+          "memory_scope": "whole_device",
+          "memory_start_bytes": null,
+          "method": null,
+          "peak_memory_increase_bytes": null,
+          "peak_memory_used_bytes": null,
+          "peak_utilization_percent": null,
+          "sampled": false,
+          "samples": 0
+        },
+        "memory_scope": "driver_and_descendant_processes",
+        "monitor_error": null,
+        "peak_child_rss_bytes": 0,
+        "peak_driver_rss_bytes": 201682944,
+        "peak_rss_bytes": 201682944,
+        "peak_rss_increase_bytes": 606208,
+        "rss_start_bytes": 201076736,
+        "wall_seconds": 0.01783942499969271
+      },
+      "ridge_fit_measurement": "fit minus correlation and source selection",
+      "ridge_fit_seconds": 0.011915581998891867,
+      "ridge_parameters": {
+        "alpha": 1.0,
+        "fit_intercept": true
+      },
+      "selected_sources_per_target": [
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13
+      ],
+      "source_selection_seconds": 0.002577342000677163,
+      "total_seconds": 0.01739880400009497
+    },
+    "ridge_mapper": {
+      "fit_seconds": 0.0019957990002694714,
+      "number_of_targets": 32,
+      "predict_seconds": 0.0001150690000031318,
+      "prediction": {
+        "checksum": 48.939196311461274,
+        "mean": 0.02998725264182676,
+        "shape": [
+          51,
+          32
+        ],
+        "std": 0.9945325903793504
+      },
+      "resources": {
+        "cpu": {
+          "children_system_seconds": 0.0,
+          "children_user_seconds": 0.0,
+          "process_tree_seconds": 0.01,
+          "resource_total_seconds": 0.0023789999999999645,
+          "scope": "sampled_process_tree_or_resource_max",
+          "self_system_seconds": 0.0023259999999999947,
+          "self_user_seconds": 5.299999999996974e-05,
+          "total_seconds": 0.01,
+          "utilization_percent": 384.6625797560999
+        },
+        "gpu": {
+          "device_index": null,
+          "error": null,
+          "memory_scope": "whole_device",
+          "memory_start_bytes": null,
+          "method": null,
+          "peak_memory_increase_bytes": null,
+          "peak_memory_used_bytes": null,
+          "peak_utilization_percent": null,
+          "sampled": false,
+          "samples": 0
+        },
+        "memory_scope": "driver_and_descendant_processes",
+        "monitor_error": null,
+        "peak_child_rss_bytes": 0,
+        "peak_driver_rss_bytes": 201076736,
+        "peak_rss_bytes": 201076736,
+        "peak_rss_increase_bytes": 2048000,
+        "rss_start_bytes": 199028736,
+        "wall_seconds": 0.0025996809999924153
+      },
+      "ridge_parameters": {
+        "alpha": 1.0,
+        "fit_intercept": true
+      },
+      "test_source_shape": [
+        51,
+        256
+      ],
+      "total_seconds": 0.0021584729997812246,
+      "train_source_shape": [
+        205,
+        256
+      ],
+      "train_target_shape": [
+        205,
+        32
+      ]
+    }
+  },
+  "config": {
+    "bootstrap_iters": 5,
+    "latent_dim": 32,
+    "noise_std": 0.2,
+    "percentile": 95.0,
+    "signal_sources": 16,
+    "sources": 256,
+    "splits": 3,
+    "stimuli": 256,
+    "targets": 32,
+    "train_frac": 0.8,
+    "trials": 12
+  },
+  "dataset": {
+    "fixture": null,
+    "origin": "correlated_synthetic",
+    "source": {
+      "bytes": 262144,
+      "dtype": "float32",
+      "shape": [
+        256,
+        256
+      ]
+    },
+    "standalone_test_samples": 51,
+    "standalone_train_samples": 205,
+    "target": {
+      "bytes": 393216,
+      "dtype": "float32",
+      "shape": [
+        12,
+        256,
+        32
+      ]
+    }
+  },
+  "metadata": {
+    "cpu": {
+      "affinity_cpus": 12,
+      "logical_cpus": 12,
+      "model": "12th Gen Intel(R) Core(TM) i7-12700KF"
+    },
+    "cuda_probe": {
+      "available": null,
+      "reason": "not probed for CPU benchmark"
+    },
+    "gpu_devices": [],
+    "libraries": {
+      "numpy": "2.0.2",
+      "scikit_learn": "1.8.0",
+      "scipy": "1.17.1",
+      "torch": "2.11.0+cu129"
+    },
+    "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "process_peak_rss_bytes_at_end": 201945088,
+    "process_peak_rss_bytes_at_start": 199008256,
+    "python": "3.12.3",
+    "threads": {
+      "benchmark_workers": 1,
+      "environment": {
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1"
+      }
+    },
+    "timestamp_utc": "2026-08-20T20:51:53Z"
+  },
+  "schema_version": 1,
+  "seed": 1234,
+  "split_seed": 0,
+  "suite": "synthetic"
+}
