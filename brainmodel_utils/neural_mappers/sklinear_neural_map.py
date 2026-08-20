@@ -1,7 +1,7 @@
 import numpy as np
-import sklearn.linear_model as lm
 
 from . import neural_map_base as nm
+from .backends import make_resolved_regressor, resolve_backend, validate_backend
 
 __all__ = ["SKLinearNeuralMap"]
 
@@ -12,29 +12,42 @@ class SKLinearNeuralMap(nm.NeuralMapBase):
     """
 
     def __init__(
-        self, regression_type="Ridge", regression_kwargs={}, weights_save_nm=None
+        self,
+        regression_type="Ridge",
+        regression_kwargs={},
+        weights_save_nm=None,
+        backend="cpu",
     ):
-        super(SKLinearNeuralMap, self).__init__()
+        super().__init__()
         self._regression_type = regression_type
         self._regression_kwargs = regression_kwargs
         self._mapper = None
         self._weights_save_nm = weights_save_nm
         self._weights = None
+        self._backend = validate_backend(backend)
+        self._resolved_backend = None
 
     def fit(self, X, Y):
         # If target is a one-dimensional vector, make it into a column vector
         if Y.ndim == 1:
             Y = Y[:, np.newaxis]
 
-        assert (
-            X.shape[0] == Y.shape[0]
-        ), f"Features and targets sample dimension does not match: {X.shape} and {Y.shape}"
+        assert X.shape[0] == Y.shape[0], (
+            f"Features and targets sample dimension does not match: {X.shape} and {Y.shape}"
+        )
         assert X.ndim == Y.ndim == 2
 
         self._n_source = X.shape[1]
         self._n_targets = Y.shape[1]
 
-        self._mapper = getattr(lm, self._regression_type)(**self._regression_kwargs)
+        self._resolved_backend = resolve_backend(
+            self._backend, self._regression_type, self._regression_kwargs
+        )
+        self._mapper = make_resolved_regressor(
+            self._regression_type,
+            self._regression_kwargs,
+            self._resolved_backend,
+        )
         self._mapper.fit(X, Y)
         if self._weights_save_nm is not None:
             self._weights = self._mapper.coef_
@@ -57,10 +70,10 @@ class SKLinearNeuralMap(nm.NeuralMapBase):
         assert self._n_source is not None, "Fit procedure was not run."
         assert self._n_targets is not None, "Fit procedure was not run."
         assert self._mapper is not None, "Fit procedure was not run."
-        assert self._fitted == True, "Fitting failed."
-        assert (
-            X.shape[1] == self._n_source
-        ), f"Number of train features ({self._n_source}) does not align with number of test features ({X.shape[1]})"
+        assert self._fitted, "Fitting failed."
+        assert X.shape[1] == self._n_source, (
+            f"Number of train features ({self._n_source}) does not align with number of test features ({X.shape[1]})"
+        )
 
         preds = self._mapper.predict(X)
         if preds.ndim == 1:

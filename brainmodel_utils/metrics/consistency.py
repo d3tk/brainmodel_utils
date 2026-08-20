@@ -1,22 +1,66 @@
+import copy
+
 import numpy as np
 import xarray as xr
 from joblib import Parallel, delayed
-import copy
+
 from brainmodel_utils.core.utils import dict_app, dict_np, make_list
 from brainmodel_utils.metrics.utils import (
-    sphalf_input_checker,
-    str_to_metric_func,
+    concat_dict_sp,
     generic_trial_avg,
     get_splithalves,
-    concat_dict_sp,
+    sphalf_input_checker,
+    str_to_metric_func,
 )
-from brainmodel_utils.neural_mappers import PipelineNeuralMap
+from brainmodel_utils.neural_mappers import PipelineNeuralMap, backends
 from brainmodel_utils.neural_mappers.utils import generate_train_test_splits
 
 
 def sb_correction(r):
     # spearman brown correction for split halves
     return (2.0 * r) / (1.0 + r)
+
+
+def _mapping_uses_cuda(map_kwargs):
+    if isinstance(map_kwargs, list):
+        return any(
+            _mapping_uses_cuda(split_kwargs)
+            for split_kwargs in map_kwargs
+            if split_kwargs is not None
+        )
+    if not isinstance(map_kwargs, dict):
+        return False
+
+    mapper_kwargs = map_kwargs.get("map_kwargs", {})
+    backend = mapper_kwargs.get("backend", "cpu")
+    if backend == "cuda":
+        return True
+    if backend != "auto":
+        return False
+
+    map_type = map_kwargs.get("map_type", "").lower()
+    if map_type == "sklinear":
+        return (
+            backends.resolve_backend(
+                "auto",
+                mapper_kwargs.get("regression_type", "Ridge"),
+                mapper_kwargs.get("regression_kwargs", {}),
+            )
+            == "cuda"
+        )
+    if map_type == "percentile":
+        if mapper_kwargs.get("identity", True):
+            return backends.resolve_torch_backend("auto") == "cuda"
+        return (
+            backends.resolve_backend(
+                "auto",
+                mapper_kwargs.get("regression_type", "Ridge"),
+                mapper_kwargs.get("regression_kwargs", {}),
+            )
+            == "cuda"
+            and backends.resolve_torch_backend("auto") == "cuda"
+        )
+    return False
 
 
 def get_consistency_per_neuron(X, Y, X1, X2, Y1, Y2, metric="pearsonr"):
@@ -62,6 +106,69 @@ def get_consistency_per_neuron(X, Y, X1, X2, Y1, Y2, metric="pearsonr"):
     return reg_metrics
 
 
+def _pearson_columns(X, Y):
+    X = np.asarray(X)
+    Y = np.asarray(Y)
+    if X.shape[0] < 2:
+        raise ValueError("`x` and `y` must have length at least 2.")
+    X_input = X
+    Y_input = Y
+    constant = np.all(X == X[0], axis=0) | np.all(Y == Y[0], axis=0)
+    X_mean = X.mean(axis=0)
+    Y_mean = Y.mean(axis=0)
+    X = X - X_mean
+    Y = Y - Y_mean
+    X_scale = np.max(np.abs(X), axis=0)
+    Y_scale = np.max(np.abs(Y), axis=0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        X_norm = X_scale * np.linalg.norm(X / X_scale, axis=0)
+        Y_norm = Y_scale * np.linalg.norm(Y / Y_scale, axis=0)
+        correlations = np.sum((X / X_norm) * (Y / Y_norm), axis=0)
+    correlations = np.clip(correlations, -1.0, 1.0)
+    dtype = np.result_type(X_input.dtype, Y_input.dtype)
+    if not np.issubdtype(dtype, np.floating):
+        dtype = np.dtype(float)
+    threshold = np.finfo(dtype).eps ** 0.75
+    near_constant = (X_norm < threshold * np.abs(X_mean)) | (
+        Y_norm < threshold * np.abs(Y_mean)
+    )
+    fallback = constant | near_constant
+    if fallback.any():
+        pearsonr = str_to_metric_func("pearsonr")
+        correlations[fallback] = [
+            pearsonr(X_input[:, index], Y_input[:, index])[0]
+            for index in np.flatnonzero(fallback)
+        ]
+    if X.shape[0] == 2:
+        correlations = np.round(correlations)
+    return correlations
+
+
+def _get_consistency_per_neuron_pearson(X, Y, X1, X2, Y1, Y2):
+    sphalf_input_checker(X=X, Y=Y, X1=X1, X2=X2, Y1=Y1, Y2=Y2)
+    r_xy = _pearson_columns(X, Y)
+    r_xx = _pearson_columns(X1, X2)
+    r_xx_sb = sb_correction(r_xx)
+    r_yy = _pearson_columns(Y1, Y2)
+    r_yy_sb = sb_correction(r_yy)
+    product = r_xx_sb * r_yy_sb
+    invalid = (product < 0) | np.isclose(product, 0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        denom_sb = np.sqrt(product)
+        r_xy_n_sb = r_xy / denom_sb
+    denom_sb[invalid] = np.nan
+    r_xy_n_sb[invalid] = np.nan
+    return {
+        "r_xy_n_sb": r_xy_n_sb,
+        "r_xx": r_xx,
+        "r_xx_sb": r_xx_sb,
+        "r_yy": r_yy,
+        "r_yy_sb": r_yy_sb,
+        "r_xy": r_xy,
+        "denom_sb": denom_sb,
+    }
+
+
 def get_linregress_consistency_persplit(
     X,
     Y,
@@ -99,16 +206,28 @@ def get_linregress_consistency_persplit(
 
     if "rsa" in metric:
         train_res = get_consistency_per_neuron(
-            X=X, Y=Y, X1=X1, X2=X2, Y1=Y1, Y2=Y2,
+            X=X,
+            Y=Y,
+            X1=X1,
+            X2=X2,
+            Y1=Y1,
+            Y2=Y2,
             metric=metric,
         )
         dict_app(d=reg_metrics_train, curr=train_res)
 
         test_res = get_consistency_per_neuron(
-            X=X, Y=Y, X1=X1, X2=X2, Y1=Y1, Y2=Y2,
+            X=X,
+            Y=Y,
+            X1=X1,
+            X2=X2,
+            Y1=Y1,
+            Y2=Y2,
             metric=metric,
         )
         dict_app(d=reg_metrics_test, curr=test_res)
+        dict_np(reg_metrics_train)
+        dict_np(reg_metrics_test)
     else:
         X_train, Y_train, X_test, Y_test = (
             X[train_idx],
@@ -144,31 +263,49 @@ def get_linregress_consistency_persplit(
         assert Y2_pred_train.shape == Y2_train.shape
         Y2_pred_test = neural_map_2.predict(X2_test)
         assert Y2_pred_test.shape == Y2_test.shape
-        for n in range(Y_train.shape[1]):
-            curr_train_res = get_consistency_per_neuron(
-                X=Y_pred_train[:, n],
-                Y=Y_train[:, n],
-                X1=Y1_pred_train[:, n],
-                X2=Y2_pred_train[:, n],
-                Y1=Y1_train[:, n],
-                Y2=Y2_train[:, n],
-                metric=metric,
+        if metric == "pearsonr":
+            reg_metrics_train = _get_consistency_per_neuron_pearson(
+                X=Y_pred_train,
+                Y=Y_train,
+                X1=Y1_pred_train,
+                X2=Y2_pred_train,
+                Y1=Y1_train,
+                Y2=Y2_train,
             )
-            dict_app(d=reg_metrics_train, curr=curr_train_res)
-
-            curr_test_res = get_consistency_per_neuron(
-                X=Y_pred_test[:, n],
-                Y=Y_test[:, n],
-                X1=Y1_pred_test[:, n],
-                X2=Y2_pred_test[:, n],
-                Y1=Y1_test[:, n],
-                Y2=Y2_test[:, n],
-                metric=metric,
+            reg_metrics_test = _get_consistency_per_neuron_pearson(
+                X=Y_pred_test,
+                Y=Y_test,
+                X1=Y1_pred_test,
+                X2=Y2_pred_test,
+                Y1=Y1_test,
+                Y2=Y2_test,
             )
-            dict_app(d=reg_metrics_test, curr=curr_test_res)
+        else:
+            for n in range(Y_train.shape[1]):
+                curr_train_res = get_consistency_per_neuron(
+                    X=Y_pred_train[:, n],
+                    Y=Y_train[:, n],
+                    X1=Y1_pred_train[:, n],
+                    X2=Y2_pred_train[:, n],
+                    Y1=Y1_train[:, n],
+                    Y2=Y2_train[:, n],
+                    metric=metric,
+                )
+                dict_app(d=reg_metrics_train, curr=curr_train_res)
 
-    dict_np(reg_metrics_train)
-    dict_np(reg_metrics_test)
+                curr_test_res = get_consistency_per_neuron(
+                    X=Y_pred_test[:, n],
+                    Y=Y_test[:, n],
+                    X1=Y1_pred_test[:, n],
+                    X2=Y2_pred_test[:, n],
+                    Y1=Y1_test[:, n],
+                    Y2=Y2_test[:, n],
+                    metric=metric,
+                )
+                dict_app(d=reg_metrics_test, curr=curr_test_res)
+
+            dict_np(reg_metrics_train)
+            dict_np(reg_metrics_test)
     # neurons length vector
     return {"train": reg_metrics_train, "test": reg_metrics_test}
 
@@ -244,7 +381,7 @@ def get_linregress_consistency(
     start_seed=1234,
     metric="pearsonr",
     splits=None,
-    **kwargs
+    **kwargs,
 ):
     """
     The main function for computing the linear regression consistency (noise corrected)
@@ -267,15 +404,15 @@ def get_linregress_consistency(
     --------------------------------------
     dict
         A dictionary with two main keys, "train" and "test", each mapping to a dict containing:
-        
-        - "r_xy_n_sb": Noise-corrected (Spearman-Brown) per-neuron correlation 
+
+        - "r_xy_n_sb": Noise-corrected (Spearman-Brown) per-neuron correlation
                        indicating predictivity of the source for the target.
         - "r_xx", "r_xx_sb": Split-half correlation and Spearman-Brown–corrected
                             correlation for the source’s predicted responses.
         - "r_yy", "r_yy_sb": Split-half correlation and Spearman-Brown–corrected
                             correlation for the actual target responses.
         - "r_xy": Raw correlation between predicted and actual responses (uncorrected).
-        - "denom_sb": Denominator for the noise-corrected correlation 
+        - "denom_sb": Denominator for the noise-corrected correlation
                       (i.e., sqrt(r_xx_sb * r_yy_sb)).
 
         Each of these values is shaped
@@ -283,17 +420,23 @@ def get_linregress_consistency(
         or returned as an xarray.DataArray with labeled dimensions if the target is an xarray.
         The key "r_xy_n_sb" is typically the primary measure of interest.
     """
+    if num_parallel_jobs != 1 and _mapping_uses_cuda(map_kwargs):
+        raise ValueError("CUDA consistency requires num_parallel_jobs=1.")
+
     if num_parallel_jobs == 1:
         # easier to debug in not parallel mode
-        results_arr = [get_linregress_consistency_persphalftrial(
-            source=source,
-            target=target,
-            map_kwargs=map_kwargs,
-            splits=splits,
-            metric=metric,
-            sphseed=sphseed,
-            **kwargs
-        ) for sphseed in range(start_seed, start_seed + num_bootstrap_iters)]
+        results_arr = [
+            get_linregress_consistency_persphalftrial(
+                source=source,
+                target=target,
+                map_kwargs=map_kwargs,
+                splits=splits,
+                metric=metric,
+                sphseed=sphseed,
+                **kwargs,
+            )
+            for sphseed in range(start_seed, start_seed + num_bootstrap_iters)
+        ]
     else:
         results_arr = Parallel(n_jobs=num_parallel_jobs)(
             delayed(get_linregress_consistency_persphalftrial)(
@@ -303,7 +446,7 @@ def get_linregress_consistency(
                 splits=splits,
                 metric=metric,
                 sphseed=sphseed,
-                **kwargs
+                **kwargs,
             )
             for sphseed in range(start_seed, start_seed + num_bootstrap_iters)
         )

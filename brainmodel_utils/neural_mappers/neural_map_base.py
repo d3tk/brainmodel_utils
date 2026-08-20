@@ -1,5 +1,4 @@
 import numpy as np
-
 from scipy.stats import pearsonr
 
 __all__ = ["NeuralMapBase"]
@@ -39,12 +38,12 @@ class NeuralMapBase:
         assert Y.ndim == Y_pred.ndim == 2
         assert Y.shape == Y_pred.shape
 
-        corrs = np.zeros((Y.shape[1],)) + np.NaN
+        corrs = np.zeros((Y.shape[1],)) + np.nan
         for i in range(Y.shape[1]):
             if np.isnan(Y_pred[:, i]).sum() == 0:
                 _corr = pearsonr(Y[:, i], Y_pred[:, i])[0]
             else:
-                _corr = np.NaN
+                _corr = np.nan
             corrs[i] = _corr
 
         return corrs
@@ -67,12 +66,12 @@ class NeuralMapBase:
         assert Y.ndim == Y_pred.ndim == 2
         assert Y.shape == Y_pred.shape
 
-        corrs = np.zeros((Y.shape[1],)) + np.NaN
+        corrs = np.zeros((Y.shape[1],)) + np.nan
         for i in range(Y.shape[1]):
             if np.isnan(Y_pred[:, i]).sum() == 0:
                 _corr = negemd(x=Y[:, i], y=Y_pred[:, i], M=M)
             else:
-                _corr = np.NaN
+                _corr = np.nan
             corrs[i] = _corr
 
         return corrs
