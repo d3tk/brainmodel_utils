@@ -46,6 +46,8 @@ Each JSON result contains mapper phase timings, warmed H2D/D2H timings, consiste
 
 The older bundled CPU sweeps remain schema 1 historical outputs. New results use schema 2, where percentile preprocessing reports correlation, percentile-threshold calculation, and source selection as one phase because the optimized CUDA path performs them together.
 
+Matched schema-2 synthetic results are available for [CPU](results/cpu_synthetic_matched_workers1.json) and [CUDA](results/cuda_synthetic_matched_workers1.json). On this small workload, GPU setup dominates the standalone mapper timings, while the warmed full consistency workflow is 23.37x faster and its largest canonical metric difference is `3.34e-7`.
+
 Consistency output includes every train/test metric. Its canonical per-fold value is the target median after taking each target's mean over bootstrap iterations; finite counts, fraction, mean, and median are recorded globally. Standalone percentile runs retain the per-target selected-source counts for at most 256 targets and use compact count statistics for larger runs.
 
 Pass a matching prior result to compare total runtimes and canonical consistency metrics in the new JSON:
