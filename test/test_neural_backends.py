@@ -277,6 +277,27 @@ def test_sklinear_cpu_matches_sklearn(one_dimensional, monkeypatch):
     assert isinstance(mapper._mapper, Ridge)
 
 
+@pytest.mark.parametrize("perturbation", [0.0, 1e-5])
+def test_batched_ridge_solve_handles_float32_collinear_columns(perturbation):
+    rng = np.random.default_rng(190)
+    basis = rng.normal(size=(64, 3)).astype(np.float32)
+    repeated = basis[:, 0] + perturbation * rng.normal(size=basis.shape[0])
+    X = np.column_stack((basis[:, 0], repeated, basis[:, 1], basis[:, 2])).astype(
+        np.float32
+    )
+    Y = np.column_stack(
+        (2 * basis[:, 0] - basis[:, 1], -0.5 * basis[:, 0] + basis[:, 2])
+    )
+    alpha = 1e-6
+    expected = Ridge(alpha=alpha).fit(X.astype(np.float64), Y).predict(X)
+
+    weights, intercept = backends._solve_ridge(np, X, Y, alpha, True)
+    actual = X @ weights + intercept
+
+    assert weights.dtype == intercept.dtype == np.float32
+    np.testing.assert_allclose(actual, expected, rtol=2e-3, atol=2e-3)
+
+
 def test_sklinear_saves_fitted_weights(tmp_path):
     X, Y = _regression_data()
     weights_path = tmp_path / "weights.npz"

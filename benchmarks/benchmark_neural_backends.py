@@ -68,6 +68,7 @@ WORKLOAD_KEYS = {
 REGION_ROIS = {"IPS": ("IPS_L", "IPS_R")}
 NEURAL_SERIES_PATH = "processing/ophys/TwoPhotonSeriesFunctionalGreenProcessed"
 SELECTED_SOURCE_DETAIL_LIMIT = 256
+BENCHMARK_SCHEMA_VERSION = 2
 
 THREAD_ENV_VARS = (
     "OMP_NUM_THREADS",
@@ -615,8 +616,7 @@ def _mapper_options(
 class TimedPercentileNeuralMap(PercentileNeuralMap):
     def __init__(self, benchmark_backend, *args, **kwargs):
         self.benchmark_backend = benchmark_backend
-        self.correlation_seconds = 0.0
-        self.source_selection_seconds = {"fit": 0.0, "predict": 0.0}
+        self.correlation_and_source_selection_seconds = 0.0
         self.benchmark_phase = None
         super().__init__(*args, **kwargs)
 
@@ -625,14 +625,19 @@ class TimedPercentileNeuralMap(PercentileNeuralMap):
         start = time.perf_counter()
         super()._gather_correlations(X, Y)
         _synchronize(self.benchmark_backend)
-        self.correlation_seconds += time.perf_counter() - start
+        self.correlation_and_source_selection_seconds += time.perf_counter() - start
+
+    def _gather_thresholds(self):
+        start = time.perf_counter()
+        super()._gather_thresholds()
+        self.correlation_and_source_selection_seconds += time.perf_counter() - start
 
     def _get_sources(self, target_idx):
         start = time.perf_counter()
         sources = super()._get_sources(target_idx)
         elapsed = time.perf_counter() - start
-        if self.benchmark_phase in self.source_selection_seconds:
-            self.source_selection_seconds[self.benchmark_phase] += elapsed
+        if self.benchmark_phase == "fit":
+            self.correlation_and_source_selection_seconds += elapsed
         return sources
 
 
@@ -1236,24 +1241,27 @@ def benchmark_percentile(
         _, fit_seconds = _seconds(
             lambda: mapper.fit(X_train, Y_train), effective_backend
         )
-        mapper.benchmark_phase = "predict"
+        mapper.benchmark_phase = None
         prediction, predict_seconds = _seconds(
             lambda: mapper.predict(X_test), effective_backend
         )
         total_seconds = time.perf_counter() - total_start
     finally:
         resources = monitor.stop()
-    selection_fit = mapper.source_selection_seconds["fit"]
-    ridge_fit = max(0.0, fit_seconds - mapper.correlation_seconds - selection_fit)
+    preprocessing_seconds = mapper.correlation_and_source_selection_seconds
+    ridge_fit = max(0.0, fit_seconds - preprocessing_seconds)
     result = {
-        "correlation_seconds": mapper.correlation_seconds,
-        "source_selection_seconds": selection_fit,
+        "correlation_and_source_selection_seconds": preprocessing_seconds,
         "ridge_fit_seconds": ridge_fit,
         "predict_seconds": predict_seconds,
-        "predict_source_selection_seconds": mapper.source_selection_seconds["predict"],
         "fit_seconds": fit_seconds,
         "total_seconds": total_seconds,
-        "ridge_fit_measurement": "fit minus correlation and source selection",
+        "correlation_and_source_selection_measurement": (
+            "correlation, percentile threshold, and source selection"
+        ),
+        "ridge_fit_measurement": (
+            "fit minus correlation, percentile threshold, and source selection"
+        ),
         "percentile": percentile,
         "ridge_parameters": dict(regression_kwargs),
         "prediction": _prediction_summary(prediction),
@@ -1758,7 +1766,7 @@ def run_benchmarks(args):
         Y_train = target_average[first_split["train"]]
         X_test = source_average[first_split["test"]]
     result = {
-        "schema_version": 1,
+        "schema_version": BENCHMARK_SCHEMA_VERSION,
         "suite": args.suite,
         "backend_requested": args.backend,
         "backend_effective": effective_backend,

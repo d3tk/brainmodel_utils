@@ -92,6 +92,9 @@ class PercentileNeuralMap(nm.NeuralMapBase):
         # Now compute dot product = Pearson correlation
         self._corrs = np.dot(X_.T, Y_)  # (source, target)
 
+    def _gather_thresholds(self):
+        self._thresholds = np.nanpercentile(self._corrs, self._percentile, axis=0)
+
     def fit(self, X, Y):
         """
         Performs the percentile based fitting procedure.
@@ -132,7 +135,7 @@ class PercentileNeuralMap(nm.NeuralMapBase):
         if self._corrs is not None:
             assert self._corrs.shape == (self._n_source, self._n_targets)
         if self._thresholds is None:
-            self._thresholds = np.nanpercentile(self._corrs, self._percentile, axis=0)
+            self._gather_thresholds()
 
         # For each target neuron, find the source feature that maximally
         # correlates with it.

@@ -3,6 +3,7 @@ import warnings
 import numpy as np
 import pytest
 import xarray as xr
+from sklearn.linear_model import Ridge
 
 from brainmodel_utils.metrics.consistency import get_linregress_consistency
 from brainmodel_utils.neural_mappers import backends
@@ -114,6 +115,57 @@ def test_cuda_ridge_matches_cpu(shape, alpha, fit_intercept):
         atol=SCORE_ATOL,
         equal_nan=True,
     )
+
+
+def test_cuda_batched_ridge_handles_float32_duplicate_columns():
+    _require_cuml_cuda()
+    rng = np.random.default_rng(191)
+    basis = rng.normal(size=(64, 3)).astype(np.float32)
+    X = np.column_stack((basis[:, 0], basis[:, 0], basis[:, 1], basis[:, 2]))
+    Y = np.column_stack(
+        (2 * basis[:, 0] - basis[:, 1], -0.5 * basis[:, 0] + basis[:, 2])
+    )
+    kwargs = {"alpha": 1e-6}
+    cpu = SKLinearNeuralMap(regression_kwargs=kwargs, backend="cpu")
+    cuda = SKLinearNeuralMap(regression_kwargs=kwargs, backend="cuda")
+
+    cpu.fit(X, Y)
+    cuda.fit(X, Y)
+
+    assert cuda._mapper.coef_.dtype == np.float32
+    np.testing.assert_allclose(
+        cuda.predict(X), cpu.predict(X), rtol=RIDGE_RTOL, atol=RIDGE_ATOL
+    )
+
+
+def test_cuda_grouped_ridge_handles_float32_duplicate_columns():
+    _require_cuml_cuda()
+    rng = np.random.default_rng(192)
+    basis = rng.normal(size=(64, 3)).astype(np.float32)
+    X = np.column_stack((basis[:, 0], basis[:, 0], basis[:, 1], basis[:, 2]))
+    Y = np.column_stack(
+        (
+            2 * basis[:, 0] - basis[:, 1],
+            -0.5 * basis[:, 0] + basis[:, 2],
+            basis[:, 1] - basis[:, 2],
+        )
+    )
+    selections = [np.array([0, 1, 2]), np.array([0, 1, 3]), np.array([2, 3])]
+    kwargs = {"alpha": 1e-6}
+    expected = np.column_stack(
+        [
+            Ridge(**kwargs)
+            .fit(X[:, selected].astype(np.float64), Y[:, target])
+            .predict(X[:, selected])
+            for target, selected in enumerate(selections)
+        ]
+    )
+
+    models, grouped = backends.fit_grouped_ridge_cuda(X, Y, selections, kwargs)
+    actual = grouped.predict(X)
+
+    assert all(model.coef_.dtype == np.float32 for model in models)
+    np.testing.assert_allclose(actual, expected, rtol=RIDGE_RTOL, atol=RIDGE_ATOL)
 
 
 def _percentile_data():

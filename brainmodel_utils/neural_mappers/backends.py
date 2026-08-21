@@ -341,7 +341,15 @@ def can_batch_cuda_ridge(regression_kwargs):
     return solver in (None, "auto") and np.isfinite(alpha) and alpha > 0
 
 
+def _ridge_requires_float64(cupy, gram, alpha):
+    if gram.dtype != cupy.float32 or alpha >= 1:
+        return False
+    scale = cupy.max(cupy.sum(cupy.abs(gram), axis=-1)).item()
+    return alpha <= np.finfo(np.float32).eps * scale
+
+
 def _solve_ridge(cupy, X, Y, alpha, fit_intercept):
+    output_dtype = X.dtype
     if fit_intercept:
         X_offset = X.mean(axis=-2, keepdims=True)
         Y_offset = Y.mean(axis=-2, keepdims=True)
@@ -353,20 +361,28 @@ def _solve_ridge(cupy, X, Y, alpha, fit_intercept):
         X_centered = X
         Y_centered = Y
 
-    if X.shape[-1] > X.shape[-2]:
-        gram = X_centered @ cupy.swapaxes(X_centered, -1, -2)
+    use_dual = X.shape[-1] > X.shape[-2]
+    X_transposed = cupy.swapaxes(X_centered, -1, -2)
+    gram = X_centered @ X_transposed if use_dual else X_transposed @ X_centered
+    if _ridge_requires_float64(cupy, gram, alpha):
+        X_centered = X_centered.astype(cupy.float64)
+        Y_centered = Y_centered.astype(cupy.float64)
+        X_transposed = cupy.swapaxes(X_centered, -1, -2)
+        gram = X_centered @ X_transposed if use_dual else X_transposed @ X_centered
+
+    if use_dual:
         diagonal = cupy.arange(gram.shape[-1])
         gram[..., diagonal, diagonal] += alpha
         dual = cupy.linalg.solve(gram, Y_centered)
-        weights = cupy.swapaxes(X_centered, -1, -2) @ dual
+        weights = X_transposed @ dual
     else:
-        gram = cupy.swapaxes(X_centered, -1, -2) @ X_centered
         diagonal = cupy.arange(gram.shape[-1])
         gram[..., diagonal, diagonal] += alpha
-        weights = cupy.linalg.solve(
-            gram, cupy.swapaxes(X_centered, -1, -2) @ Y_centered
-        )
+        weights = cupy.linalg.solve(gram, X_transposed @ Y_centered)
     intercept = Y_offset - X_offset @ weights
+    if weights.dtype != output_dtype:
+        weights = weights.astype(output_dtype)
+        intercept = intercept.astype(output_dtype)
     return weights, intercept
 
 

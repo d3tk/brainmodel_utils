@@ -6,6 +6,7 @@ from brainmodel_utils.neural_mappers.utils import generate_train_test_splits
 np.random.seed(42)
 NUM_STIMULI = 6
 
+
 def _test_get_linregress_consistency(**linregress_kwargs):
     # make highly correlated dummy data
     model_data = np.random.randn(NUM_STIMULI, 14)
@@ -21,7 +22,7 @@ def _test_get_linregress_consistency(**linregress_kwargs):
     kwargs.update(linregress_kwargs)
     results = get_linregress_consistency(**kwargs)
 
-    assert type(results) == dict
+    assert isinstance(results, dict)
     assert "train" in results and "test" in results
     assert "r_xy_n_sb" in results["test"]
     rxysb = results["test"]["r_xy_n_sb"]
@@ -36,14 +37,14 @@ def _test_get_linregress_consistency(**linregress_kwargs):
 def test_ridge():
     results = _test_get_linregress_consistency(
         metric="pearsonr",
-        splits=generate_train_test_splits(
-            num_stim=NUM_STIMULI, train_frac=0.5
-        ),
+        splits=generate_train_test_splits(num_stim=NUM_STIMULI, train_frac=0.5),
         map_kwargs={
             "map_type": "sklinear",
             "map_kwargs": {
                 "regression_type": "Ridge",
-                "regression_kwargs": { "alpha": 1 } }}
+                "regression_kwargs": {"alpha": 1},
+            },
+        },
     )
     median_rxy = np.nanmedian(np.nanmean(results["test"]["r_xy_n_sb"], axis=(0, 1)))
     median_ryy = np.nanmedian(np.nanmean(results["test"]["r_yy_sb"], axis=(0, 1)))
@@ -54,14 +55,14 @@ def test_ridge():
 def test_rsa():
     result = _test_get_linregress_consistency(
         metric="rsa_pearsonr",
-        map_kwargs={ "map_type": "identity" },
+        map_kwargs={"map_type": "identity"},
         splits=generate_train_test_splits(num_stim=NUM_STIMULI, train_frac=0),
     )
     print(f"median rxysb: {np.nanmedian(result['test']['r_xy_n_sb'])}")
 
     result = _test_get_linregress_consistency(
         metric="rsa_spearmanr",
-        map_kwargs={ "map_type": "identity" },
+        map_kwargs={"map_type": "identity"},
         splits=generate_train_test_splits(num_stim=NUM_STIMULI, train_frac=0),
     )
     print(f"median rxysb: {np.nanmedian(result['test']['r_xy_n_sb'])}")

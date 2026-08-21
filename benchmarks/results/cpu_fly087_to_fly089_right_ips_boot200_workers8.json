@@ -1,0 +1,768 @@
+{
+  "backend_effective": "cpu",
+  "backend_effective_by_workload": {
+    "consistency": "cpu"
+  },
+  "backend_requested": "cpu",
+  "benchmarks": {
+    "linregress_consistency": {
+      "bootstrap_iterations": 200,
+      "finite_result_fraction": 0.5065545804279875,
+      "mapping": {
+        "map_kwargs": {
+          "backend": "cpu",
+          "identity": false,
+          "percentile": 99.0,
+          "regression_kwargs": {
+            "alpha": 1.0,
+            "fit_intercept": true
+          },
+          "regression_type": "Ridge"
+        },
+        "map_type": "percentile"
+      },
+      "mean_test_r_xy_n_sb": 0.24073636825160522,
+      "metric": "pearsonr",
+      "metric_summaries": {
+        "method": "bootstrap nanmean per target, then target nanmedian per fold",
+        "test": {
+          "denom_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.6032900172895028,
+              0.5404324019902793,
+              0.6178145766537955,
+              0.5250670051364021,
+              0.6627684817260338
+            ],
+            "global": {
+              "finite_count": 8427042,
+              "finite_fraction": 0.5065545804279875,
+              "mean": 0.761264826898076,
+              "median": 0.5452066482892601,
+              "total_count": 16636000
+            },
+            "median_across_folds": 0.6032900172895028
+          },
+          "r_xx": {
+            "bootstrap_mean_target_median_by_fold": [
+              -0.03079738293757394,
+              0.12592230514058936,
+              -0.05246033229940271,
+              0.5980244934876677,
+              -0.011890302952935443
+            ],
+            "global": {
+              "finite_count": 16636000,
+              "finite_fraction": 1.0,
+              "mean": 0.13829149719630604,
+              "median": 0.1652078920922203,
+              "total_count": 16636000
+            },
+            "median_across_folds": -0.011890302952935443
+          },
+          "r_xx_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              -0.7567488103311344,
+              -0.20544920542331266,
+              -0.816042297842641,
+              0.6990279880797706,
+              -0.8775298496218638
+            ],
+            "global": {
+              "finite_count": 16636000,
+              "finite_fraction": 1.0,
+              "mean": -0.39300697757025216,
+              "median": 0.28356809666913063,
+              "total_count": 16636000
+            },
+            "median_across_folds": -0.7567488103311344
+          },
+          "r_xy": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.026257495132242722,
+              0.11614947017891868,
+              0.06975534911309654,
+              0.2133362378429646,
+              0.062499347688770746
+            ],
+            "global": {
+              "finite_count": 16636000,
+              "finite_fraction": 1.0,
+              "mean": 0.07810142491951506,
+              "median": 0.09461925823237369,
+              "total_count": 16636000
+            },
+            "median_across_folds": 0.06975534911309654
+          },
+          "r_xy_n_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.06787582341070092,
+              0.30666009606499905,
+              0.18796984304369238,
+              0.5519194274657313,
+              0.1586351707289044
+            ],
+            "global": {
+              "finite_count": 8427042,
+              "finite_fraction": 0.5065545804279875,
+              "mean": 0.24073636825160522,
+              "median": 0.14415904975026295,
+              "total_count": 16636000
+            },
+            "median_across_folds": 0.18796984304369238
+          },
+          "r_yy": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.015942607931792738,
+              0.016052516024792567,
+              0.01820748162921518,
+              0.042989063910208646,
+              0.017821628130041064
+            ],
+            "global": {
+              "finite_count": 16636000,
+              "finite_fraction": 1.0,
+              "mean": 0.005309376846124036,
+              "median": 0.0036247819662094116,
+              "total_count": 16636000
+            },
+            "median_across_folds": 0.017821628130041064
+          },
+          "r_yy_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              -0.15451676414581017,
+              -0.15379313216544688,
+              -0.14786788663535844,
+              -0.09033975632919464,
+              -0.2002629232383333
+            ],
+            "global": {
+              "finite_count": 16636000,
+              "finite_fraction": 1.0,
+              "mean": -0.5603611048513208,
+              "median": 0.007223380729556084,
+              "total_count": 16636000
+            },
+            "median_across_folds": -0.15379313216544688
+          }
+        },
+        "train": {
+          "denom_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.3337093981971836,
+              0.3289557963625289,
+              0.32818180968473387,
+              0.3190258942608223,
+              0.32994473607296215
+            ],
+            "global": {
+              "finite_count": 13561567,
+              "finite_fraction": 0.8151939769175283,
+              "mean": 0.3837886781771536,
+              "median": 0.3415031045609273,
+              "total_count": 16636000
+            },
+            "median_across_folds": 0.3289557963625289
+          },
+          "r_xx": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.1564651407846661,
+              0.14333340717512308,
+              0.15098406944093765,
+              0.06565302180113503,
+              0.15626565803302872
+            ],
+            "global": {
+              "finite_count": 16636000,
+              "finite_fraction": 1.0,
+              "mean": 0.1296776297892683,
+              "median": 0.1356973153461046,
+              "total_count": 16636000
+            },
+            "median_across_folds": 0.15098406944093765
+          },
+          "r_xx_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.23165132306733308,
+              0.21004236910605215,
+              0.22235542840717418,
+              0.07201633315669728,
+              0.23153393885940704
+            ],
+            "global": {
+              "finite_count": 16636000,
+              "finite_fraction": 1.0,
+              "mean": 0.12548018362566313,
+              "median": 0.2389673965280905,
+              "total_count": 16636000
+            },
+            "median_across_folds": 0.22235542840717418
+          },
+          "r_xy": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.8890273479439706,
+              0.889436912149297,
+              0.892713654969177,
+              0.9152585783310756,
+              0.887521445441448
+            ],
+            "global": {
+              "finite_count": 16636000,
+              "finite_fraction": 1.0,
+              "mean": 0.8924418898900008,
+              "median": 0.8949505235807121,
+              "total_count": 16636000
+            },
+            "median_across_folds": 0.889436912149297
+          },
+          "r_xy_n_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              4.72462491326484,
+              4.832309463286694,
+              4.817733690945704,
+              5.551185444363355,
+              4.745871183862318
+            ],
+            "global": {
+              "finite_count": 13561567,
+              "finite_fraction": 0.8151939769175283,
+              "mean": 4.865306787329039,
+              "median": 2.6159335705340165,
+              "total_count": 16636000
+            },
+            "median_across_folds": 4.817733690945704
+          },
+          "r_yy": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.05177415046142414,
+              0.04347333372337743,
+              0.052343986203195525,
+              0.02797238691244274,
+              0.0519737723225262
+            ],
+            "global": {
+              "finite_count": 16636000,
+              "finite_fraction": 1.0,
+              "mean": 0.04100769606184376,
+              "median": 0.041057247668504715,
+              "total_count": 16636000
+            },
+            "median_across_folds": 0.05177415046142414
+          },
+          "r_yy_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.06678786822449183,
+              0.05167293905746192,
+              0.06786070458016183,
+              0.019787808917462825,
+              0.06796362886321732
+            ],
+            "global": {
+              "finite_count": 16636000,
+              "finite_fraction": 1.0,
+              "mean": 0.002041209737147536,
+              "median": 0.0788760557770729,
+              "total_count": 16636000
+            },
+            "median_across_folds": 0.06678786822449183
+          }
+        }
+      },
+      "resources": {
+        "cpu": {
+          "children_system_seconds": 0.0,
+          "children_user_seconds": 0.0,
+          "process_tree_seconds": 96650.78,
+          "resource_total_seconds": 369.81144900000004,
+          "scope": "sampled_process_tree_or_resource_max",
+          "self_system_seconds": 142.96796700000002,
+          "self_user_seconds": 226.843482,
+          "total_seconds": 96650.78,
+          "utilization_percent": 761.0585619831652
+        },
+        "gpu": {
+          "device_index": null,
+          "error": null,
+          "memory_scope": "whole_device",
+          "memory_start_bytes": null,
+          "method": null,
+          "peak_memory_increase_bytes": null,
+          "peak_memory_used_bytes": null,
+          "peak_utilization_percent": null,
+          "sampled": false,
+          "samples": 0
+        },
+        "memory_scope": "driver_and_descendant_processes",
+        "monitor_error": null,
+        "peak_child_rss_bytes": 38436777984,
+        "peak_driver_rss_bytes": 4864217088,
+        "peak_rss_bytes": 43300995072,
+        "peak_rss_increase_bytes": 41553158144,
+        "rss_start_bytes": 1747836928,
+        "wall_seconds": 12699.519436211
+      },
+      "result_shape": [
+        200,
+        5,
+        16636
+      ],
+      "ridge_parameters": {
+        "alpha": 1.0,
+        "fit_intercept": true
+      },
+      "total_seconds": 12699.517211746,
+      "train_test_splits": 5,
+      "workers": 8
+    }
+  },
+  "config": {
+    "bootstrap_iters": 200,
+    "consistency_map": "percentile",
+    "latent_dim": 64,
+    "noise_std": 0.2,
+    "percentile": 99.0,
+    "signal_sources": 32,
+    "sources": 16636,
+    "split_strategy": "blocked",
+    "splits": 5,
+    "stimuli": 39,
+    "targets": 16636,
+    "train_frac": 0.8,
+    "trials": 36
+  },
+  "dataset": {
+    "fixture": null,
+    "origin": "brezovec_fly",
+    "provenance": {
+      "dandiset": {
+        "doi": "10.48324/dandi.000727/0.240106.0043",
+        "file": {
+          "mtime_ns": 1704500379000000000,
+          "path": "/mnt/z/brezovec_fly_data/000727/dandiset.yaml",
+          "size_bytes": 6392
+        },
+        "identifier": "DANDI:000727",
+        "version": "0.240106.0043"
+      },
+      "direction": "right",
+      "interpolation": "linear with endpoint clamping",
+      "interpolation_queries": {
+        "source": {
+          "after_end_count": 7,
+          "before_start_count": 23,
+          "clamped_query_count": 30,
+          "events_with_clamped_queries": 3,
+          "query_count": 20865
+        },
+        "target": {
+          "after_end_count": 0,
+          "before_start_count": 0,
+          "clamped_query_count": 0,
+          "events_with_clamped_queries": 0,
+          "query_count": 1404
+        }
+      },
+      "preparation_seconds": 5.642327470999589,
+      "region": "IPS",
+      "relative_times": {
+        "count": 39,
+        "start": -15.0,
+        "stop": 5.215836637999985
+      },
+      "roi_h5": {
+        "mtime_ns": 1784660292073239900,
+        "path": "/mnt/z/brezovec_fly_data/000727/roi_activity.h5",
+        "size_bytes": 12854428347
+      },
+      "roi_order": [
+        "IPS_L",
+        "IPS_R"
+      ],
+      "root": "/mnt/z/brezovec_fly_data/000727",
+      "source_events": {
+        "event_count": 535,
+        "event_file": {
+          "mtime_ns": 1784672990983661500,
+          "path": "/mnt/z/brezovec_fly_data/000727/inter_animal_consistency/two_fly_pilot/events/fly_087_turn_bouts.csv",
+          "size_bytes": 130090
+        },
+        "event_source": "historical",
+        "window_file": {
+          "mtime_ns": 1784672992170851500,
+          "path": "/mnt/z/brezovec_fly_data/000727/inter_animal_consistency/two_fly_pilot/event_tensors/short/fly_087_right.npz",
+          "size_bytes": 5579768
+        }
+      },
+      "source_fly": "fly_087",
+      "source_nwb": {
+        "file": {
+          "mtime_ns": 1702231861000000000,
+          "path": "/mnt/z/brezovec_fly_data/000727/sub-fly-087/sub-fly-087_ses-20200228161226_behavior+image+ophys.nwb",
+          "size_bytes": 68975371022
+        },
+        "rate": 1.8797144377676087,
+        "samples": 3384,
+        "series_path": "processing/ophys/TwoPhotonSeriesFunctionalGreenProcessed",
+        "starting_time": 0.0,
+        "timestamp_storage": "implicit"
+      },
+      "source_roi_shapes": [
+        [
+          "IPS_L",
+          3384,
+          7168
+        ],
+        [
+          "IPS_R",
+          3384,
+          9468
+        ]
+      ],
+      "target_events": {
+        "event_count": 36,
+        "event_file": {
+          "mtime_ns": 1784672992932115000,
+          "path": "/mnt/z/brezovec_fly_data/000727/inter_animal_consistency/two_fly_pilot/events/fly_089_turn_bouts.csv",
+          "size_bytes": 13889
+        },
+        "event_source": "historical",
+        "window_file": {
+          "mtime_ns": 1784672993869716200,
+          "path": "/mnt/z/brezovec_fly_data/000727/inter_animal_consistency/two_fly_pilot/event_tensors/short/fly_089_right.npz",
+          "size_bytes": 378837
+        }
+      },
+      "target_fly": "fly_089",
+      "target_nwb": {
+        "file": {
+          "mtime_ns": 1702231868000000000,
+          "path": "/mnt/z/brezovec_fly_data/000727/sub-fly-089/sub-fly-089_ses-20200618081653_behavior+image+ophys.nwb",
+          "size_bytes": 66626834273
+        },
+        "rate": 1.8797146533005422,
+        "samples": 3384,
+        "series_path": "processing/ophys/TwoPhotonSeriesFunctionalGreenProcessed",
+        "starting_time": 0.0,
+        "timestamp_storage": "implicit"
+      },
+      "target_roi_shapes": [
+        [
+          "IPS_L",
+          3384,
+          7168
+        ],
+        [
+          "IPS_R",
+          3384,
+          9468
+        ]
+      ],
+      "target_selection": {
+        "full_count": 16636,
+        "indices": null,
+        "is_slice": false,
+        "selected_count": 16636,
+        "strategy": "all"
+      }
+    },
+    "source": {
+      "bytes": 1388440560,
+      "dtype": "float32",
+      "shape": [
+        535,
+        39,
+        16636
+      ]
+    },
+    "split_strategy": "blocked",
+    "standalone_test_samples": 8,
+    "standalone_train_samples": 31,
+    "target": {
+      "bytes": 93427776,
+      "dtype": "float32",
+      "shape": [
+        36,
+        39,
+        16636
+      ]
+    },
+    "train_test_indices": [
+      {
+        "test": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "train": [
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38
+        ]
+      },
+      {
+        "test": [
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38
+        ]
+      },
+      {
+        "test": [
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38
+        ]
+      },
+      {
+        "test": [
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31
+        ],
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38
+        ]
+      },
+      {
+        "test": [
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38
+        ],
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "cpu": {
+      "affinity_cpus": 12,
+      "logical_cpus": 12,
+      "model": "12th Gen Intel(R) Core(TM) i7-12700KF"
+    },
+    "cuda_probe": {
+      "available": null,
+      "device_index": 0,
+      "reason": "not probed for CPU benchmark"
+    },
+    "gpu_devices": [
+      {
+        "driver_version": "610.88",
+        "index": 0,
+        "memory_total_bytes": 10737418240,
+        "name": "NVIDIA GeForce RTX 3080",
+        "uuid": "GPU-40f13575-6ec5-c1b3-c72e-69caef571bd7"
+      }
+    ],
+    "libraries": {
+      "cuml": "25.10.0",
+      "cupy": "14.2.0",
+      "h5py": "3.16.0",
+      "numpy": "2.2.6",
+      "scikit_learn": "1.7.2",
+      "scipy": "1.18.0",
+      "torch": "2.4.1"
+    },
+    "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "process_peak_rss_bytes_at_end": 4926472192,
+    "process_peak_rss_bytes_at_start": 2197655552,
+    "python": "3.12.3",
+    "repository": {
+      "commit": "50ded2dbf72ac5f1fe72202e468b1e213a08e8b7",
+      "dirty": false,
+      "root": "/home/user/brainmodel_utils"
+    },
+    "threads": {
+      "benchmark_workers": 8,
+      "environment": {}
+    },
+    "timestamp_utc": "2026-08-20T22:57:31Z"
+  },
+  "schema_version": 2,
+  "seed": 1000,
+  "split_seed": 0,
+  "suite": "production",
+  "workloads": [
+    "consistency"
+  ]
+}

@@ -44,6 +44,8 @@ Select components with `--workloads transfer ridge percentile consistency`; omit
 
 Each JSON result contains mapper phase timings, warmed H2D/D2H timings, consistency timing, shapes, split indices, CPU/thread/library metadata, repository commit and dirty state, process-tree peak RSS and CPU time, and best-effort whole-device VRAM and utilization. Whole-device GPU readings can include unrelated processes.
 
+The older bundled CPU sweeps remain schema 1 historical outputs. New results use schema 2, where percentile preprocessing reports correlation, percentile-threshold calculation, and source selection as one phase because the optimized CUDA path performs them together.
+
 Consistency output includes every train/test metric. Its canonical per-fold value is the target median after taking each target's mean over bootstrap iterations; finite counts, fraction, mean, and median are recorded globally. Standalone percentile runs retain the per-target selected-source counts for at most 256 targets and use compact count statistics for larger runs.
 
 Pass a matching prior result to compare total runtimes and canonical consistency metrics in the new JSON:
@@ -77,7 +79,7 @@ The mounted Brezovec store can instead be read directly without creating a multi
 | Mapping | percentile 99, Ridge `alpha=1` |
 | Repetitions | 200 split-half bootstraps, seed 1000 |
 
-Run the full CUDA protocol with:
+Run the CPU reference with eight workers:
 
 ```bash
 python -m benchmarks.benchmark_neural_backends \
@@ -95,13 +97,21 @@ python -m benchmarks.benchmark_neural_backends \
   --alpha 1 \
   --bootstrap-iters 200 \
   --seed 1000 \
+  --backend cpu \
+  --workers 8 \
+  --workloads consistency \
+  --output benchmarks/results/cpu_fly087_to_fly089_right_ips_boot200_workers8.json
+```
+
+Then run the matched CUDA protocol with one worker by changing the last part of the command to:
+
+```bash
   --backend cuda \
   --workers 1 \
   --workloads consistency \
-  --output benchmarks/results/cuda_fly087_to_fly089_right_ips.json
+  --reference-result benchmarks/results/cpu_fly087_to_fly089_right_ips_boot200_workers8.json \
+  --output benchmarks/results/cuda_fly087_to_fly089_right_ips_boot200_workers1.json
 ```
-
-For the CPU reference, use the identical command with `--backend cpu`, the chosen CPU worker count, and a separate output path. Add that output as `--reference-result` to the CUDA run for an in-file comparison.
 
 `historical` reads all pilot CSV turns. `validated` uses the boundary-filtered NPZ windows instead (`532/36` events). Both modes interpolate the two ROIs onto the saved relative-time grid. For a short validation run, `--target-limit 128` selects evenly spaced targets and marks the output as a slice; omit it for the full 16,636-target protocol. The five blocked test folds are `0–7`, `8–15`, `16–23`, `24–31`, and `32–38`.
 
@@ -109,14 +119,12 @@ Provenance includes the DANDI identifier, version, DOI, file paths, sizes and mt
 
 ## RTX 3080 production result
 
-Update this small table after the final full, matched rerun:
-
 | Run | Wall time | Peak RSS | Peak VRAM |
 | --- | ---: | ---: | ---: |
-| CPU reference | TBD | TBD | n/a |
-| RTX 3080 CUDA | TBD | TBD | TBD |
+| [CPU, 8 workers](results/cpu_fly087_to_fly089_right_ips_boot200_workers8.json) | 3:31:39.5 | 40.33 GiB (38.70 GiB increase) | n/a |
+| [RTX 3080 CUDA, 1 worker](results/cuda_fly087_to_fly089_right_ips_boot200_workers1.json) | 0:37:32.0 | 6.43 GiB (4.18 GiB increase) | 1.73 GiB whole-device (0.58 GiB increase) |
 
-Speedup: **TBD**. Canonical test-metric difference: **TBD**.
+The host was an Intel Core i7-12700KF with 12 logical CPUs and an NVIDIA GeForce RTX 3080 10 GiB. CUDA was **5.64x faster**. The canonical test `r_xy_n_sb` difference (CUDA minus CPU) was **+0.001316**; the corresponding global finite-value mean difference was **-0.000107**. The largest canonical metric difference was 0.001316, within the full-pipeline parity tolerance of 0.005. Peak CUDA utilization was 87%.
 
 ## `cuml.accel` experiment
 

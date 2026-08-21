@@ -92,6 +92,7 @@ def test_cpu_smoke_benchmark():
 
     result = run_benchmarks(args)
 
+    assert result["schema_version"] == 2
     assert result["backend_effective"] == "cpu"
     assert result["backend_effective_by_workload"] == {
         "transfer": "cpu",
@@ -112,9 +113,15 @@ def test_cpu_smoke_benchmark():
     assert result["benchmarks"]["host_device_transfer"]["measured"] is False
     assert result["benchmarks"]["ridge_mapper"]["resources"]["cpu"]["total_seconds"] > 0
     percentile = result["benchmarks"]["percentile_mapper"]
-    assert percentile["correlation_seconds"] > 0
-    assert percentile["source_selection_seconds"] > 0
+    preprocessing_seconds = percentile["correlation_and_source_selection_seconds"]
+    assert preprocessing_seconds > 0
     assert percentile["ridge_fit_seconds"] > 0
+    assert preprocessing_seconds + percentile["ridge_fit_seconds"] == pytest.approx(
+        percentile["fit_seconds"]
+    )
+    assert percentile["correlation_and_source_selection_measurement"] == (
+        "correlation, percentile threshold, and source selection"
+    )
     consistency = result["benchmarks"]["linregress_consistency"]
     assert consistency["result_shape"] == [1, 2, 6]
     assert np.isfinite(consistency["mean_test_r_xy_n_sb"])
@@ -138,6 +145,52 @@ def test_cpu_smoke_benchmark():
         == summaries["test"]["r_xy_n_sb"]["global"]["mean"]
     )
     json.dumps(result, allow_nan=False)
+
+
+def test_percentile_phase_includes_threshold_and_source_selection(monkeypatch):
+    clock = [0.0]
+
+    def advance(seconds):
+        clock[0] += seconds
+
+    def gather_correlations(mapper, X, Y):
+        advance(2.0)
+        mapper._corrs = np.zeros((X.shape[1], Y.shape[1]))
+
+    def gather_thresholds(mapper):
+        advance(3.0)
+        mapper._thresholds = np.zeros(mapper._n_targets)
+
+    def get_sources(mapper, target_idx):
+        advance(5.0)
+        selected = np.zeros(mapper._n_source, dtype=bool)
+        selected[target_idx] = True
+        return selected
+
+    monkeypatch.setattr(benchmark.time, "perf_counter", lambda: clock[0])
+    monkeypatch.setattr(
+        benchmark.PercentileNeuralMap,
+        "_gather_correlations",
+        gather_correlations,
+    )
+    monkeypatch.setattr(
+        benchmark.PercentileNeuralMap,
+        "_gather_thresholds",
+        gather_thresholds,
+    )
+    monkeypatch.setattr(
+        benchmark.PercentileNeuralMap,
+        "_get_sources",
+        get_sources,
+    )
+
+    mapper = benchmark.TimedPercentileNeuralMap(
+        "cpu", percentile=100, identity=True, backend="cpu"
+    )
+    mapper.benchmark_phase = "fit"
+    mapper.fit(np.ones((4, 2)), np.ones((4, 2)))
+
+    assert mapper.correlation_and_source_selection_seconds == 15.0
 
 
 def test_consistency_metric_summary_uses_canonical_fold_aggregation():
