@@ -46,6 +46,10 @@ cmd=(
   --replica "${REPLICA:-0}"
   --max-concurrent "${MAX_CONCURRENT:-1}"
   --python "$PYTHON"
+  --source-fly "${SOURCE_FLY:-fly_100}"
+  --target-fly "${TARGET_FLY:-fly_099}"
+  --direction "${DIRECTION:-right}"
+  --events-dir "$EVENTS_DIR"
 )
 if [[ -n "$TARGET_LIMIT" ]]; then
   cmd+=(--target-limit "$TARGET_LIMIT")

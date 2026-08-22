@@ -1,6 +1,24 @@
 # Babel `general` screen (2026-08-21)
 
-These jobs are **not** full IPS comparisons. They are 5-bootstrap, 128-target slices used to test packing, event loading, and CUDA bring-up.
+Tiny jobs below are **not** full IPS comparisons. They are 5-bootstrap, 128-target slices used to test packing, event loading, and CUDA bring-up.
+
+## Full IPS-CV-matched comparison (2026-08-22)
+
+fly_100 → fly_099, right turns, all IPS voxels, native 30-bin grid (−15 to 0.4 s), 624 / 571 events, 200 bootstraps × 5 blocked folds × 27,118 targets, percentile 99, Ridge α=1. Same mapping as autonomous-drosophila IPS CV (not the 128-target screen).
+
+| | CPU 8 `10190371` | CUDA 1 `10190372` | CPU 32 `10190370` |
+|---|---:|---:|---:|
+| Consistency wall | 2:40:07 | 1:14:26 | 0:45:56 |
+| Peak RSS | 103 GiB | 11 GiB host / 2.13 GiB GPU | 401 GiB |
+| mean test `r_xy_n_sb` | 0.543274 | 0.543533 | 0.543274 |
+| median test `r_xy_n_sb` | 0.355993 | 0.355992 | 0.355993 |
+| Finite fraction | 0.591 | 0.591 | 0.591 |
+| Comparisons / hour (one job) | 0.37 | 0.81 | 1.31 |
+| GPU | n/a | L40S, mean util 19%, peak 76% | n/a |
+
+JSON: `ips_cv_f100_t099_right_b200_r0_j0_{cpu_w8,cuda_w1,cpu_w32}.json`. CPU-8 and CPU-32 scores match exactly. CUDA medians agree to ~1e-6. These are **one-comparison latency** numbers, not independent comparisons per node-hour. CUDA ridge 45.3 min, correlation 7.5 min.
+
+CPU-8 is the packing closest to the ~2 h IPS CV jobs. CUDA is 2.15× faster than that packing for this one comparison; CPU-32 is 3.49× faster than CPU-8 (4× workers).
 
 ## Why this is seconds, not ~2 hours
 

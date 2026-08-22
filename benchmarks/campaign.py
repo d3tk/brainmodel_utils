@@ -8,41 +8,47 @@ import sys
 from pathlib import Path
 
 
-ANCHOR_FLAGS = [
-    "--suite",
-    "production",
-    "--fly-data-root",
-    os.environ.get(
-        "FLY_DATA_ROOT",
-        "/data/group_data/neuroagents_lab/neural_datasets/brezovec_drosophila_data/000727",
-    ),
-    "--source-fly",
-    "fly_087",
-    "--target-fly",
-    "fly_089",
-    "--direction",
-    "right",
-    "--region",
-    "IPS",
-    "--event-source",
-    "historical",
-]
-if os.environ.get("EVENTS_DIR"):
-    ANCHOR_FLAGS.extend(["--events-dir", os.environ["EVENTS_DIR"]])
-ANCHOR_FLAGS += [
-    "--split-strategy",
-    "blocked",
-    "--splits",
-    "5",
-    "--consistency-map",
-    "percentile",
-    "--percentile",
-    "99",
-    "--alpha",
-    "1",
-    "--workloads",
-    "consistency",
-]
+DEFAULT_FLY_DATA_ROOT = (
+    "/data/group_data/neuroagents_lab/neural_datasets/brezovec_drosophila_data/000727"
+)
+DEFAULT_EVENTS_DIR = (
+    "/data/group_data/neuroagents_lab/autonomous-drosophila/outputs/"
+    "interanimal/turn_m15_p0p4_v1/events"
+)
+
+
+def protocol_flags(args):
+    flags = [
+        "--suite",
+        "production",
+        "--fly-data-root",
+        args.fly_data_root,
+        "--source-fly",
+        args.source_fly,
+        "--target-fly",
+        args.target_fly,
+        "--direction",
+        args.direction,
+        "--region",
+        args.region,
+        "--event-source",
+        args.event_source,
+        "--split-strategy",
+        "blocked",
+        "--splits",
+        "5",
+        "--consistency-map",
+        "percentile",
+        "--percentile",
+        str(args.percentile),
+        "--alpha",
+        str(args.alpha),
+        "--workloads",
+        "consistency",
+    ]
+    if args.events_dir:
+        flags.extend(["--events-dir", args.events_dir])
+    return flags
 
 
 def assign_seed_ranges(base_seed, bootstrap_iters, n_jobs, replica=0):
@@ -78,7 +84,7 @@ def build_command(python, benchmark_module, assignment, args):
         python,
         "-m",
         benchmark_module,
-        *ANCHOR_FLAGS,
+        *protocol_flags(args),
         "--backend",
         args.backend,
         "--workers",
@@ -143,6 +149,15 @@ def build_parser():
     parser.add_argument("--jobs", type=int, default=1)
     parser.add_argument("--replica", type=int, default=0)
     parser.add_argument("--max-concurrent", type=int, default=1)
+    parser.add_argument("--fly-data-root", default=os.environ.get("FLY_DATA_ROOT", DEFAULT_FLY_DATA_ROOT))
+    parser.add_argument("--events-dir", default=os.environ.get("EVENTS_DIR", DEFAULT_EVENTS_DIR))
+    parser.add_argument("--source-fly", default=os.environ.get("SOURCE_FLY", "fly_100"))
+    parser.add_argument("--target-fly", default=os.environ.get("TARGET_FLY", "fly_099"))
+    parser.add_argument("--direction", default=os.environ.get("DIRECTION", "right"))
+    parser.add_argument("--region", default="IPS")
+    parser.add_argument("--event-source", default="historical")
+    parser.add_argument("--percentile", type=float, default=99.0)
+    parser.add_argument("--alpha", type=float, default=1.0)
     parser.add_argument("--target-limit", type=int)
     parser.add_argument("--correlation-target-batch-size")
     parser.add_argument("--ridge-workspace-bytes", type=int)

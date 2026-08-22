@@ -20,6 +20,16 @@ def test_event_files_finds_flat_npz(tmp_path):
     assert found.is_file()
 
 
+def test_protocol_flags_default_to_ips_cv_pair():
+    from benchmarks.campaign import build_parser, protocol_flags
+
+    args = build_parser().parse_args(["--output-dir", "/tmp"])
+    flags = protocol_flags(args)
+    assert "--source-fly" in flags and "fly_100" in flags
+    assert "--target-fly" in flags and "fly_099" in flags
+    assert "--events-dir" in flags
+
+
 def test_assign_seed_ranges_are_unique_and_non_overlapping():
     first = assign_seed_ranges(1000, 200, 3, replica=0)
     second = assign_seed_ranges(1000, 200, 3, replica=1)
