@@ -13,6 +13,7 @@ from brainmodel_utils.metrics.utils import (
     str_to_metric_func,
 )
 from brainmodel_utils.neural_mappers import PipelineNeuralMap, backends
+from brainmodel_utils.neural_mappers.profiling import phase
 from brainmodel_utils.neural_mappers.utils import generate_train_test_splits
 
 
@@ -145,6 +146,11 @@ def _pearson_columns(X, Y):
 
 
 def _get_consistency_per_neuron_pearson(X, Y, X1, X2, Y1, Y2):
+    with phase("cpu_metrics"):
+        return _get_consistency_per_neuron_pearson_impl(X, Y, X1, X2, Y1, Y2)
+
+
+def _get_consistency_per_neuron_pearson_impl(X, Y, X1, X2, Y1, Y2):
     sphalf_input_checker(X=X, Y=Y, X1=X1, X2=X2, Y1=Y1, Y2=Y2)
     r_xy = _pearson_columns(X, Y)
     r_xx = _pearson_columns(X1, X2)

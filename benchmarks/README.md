@@ -131,3 +131,19 @@ The host was an Intel Core i7-12700KF with 12 logical CPUs and an NVIDIA GeForce
 ## `cuml.accel` experiment
 
 RAPIDS 25.10 `cuml.accel` did not accelerate this API: its profiler reported zero GPU Ridge calls because both the multi-target mapper and the per-target `(samples, 1)` fits were rejected as multi-output. On the warmed smoke workload it preserved predictions exactly but was 1.81× slower for Ridge and 1.70× slower for percentile mapping, so the explicit backend remains the supported GPU path.
+
+## Server campaign
+
+Schema 3 records GPU identity by UUID (so `CUDA_VISIBLE_DEVICES` remapping is not confused with `nvidia-smi` index 0), correlation/Ridge batch settings, phase timings, and utilization time series. Independent comparisons are launched with unique seed ranges and output paths:
+
+There is no debug, array, or CPU partition. All campaign jobs use `general` / `normal` GPU nodes (`--gres=gpu:1`). CPU comparisons still run on those nodes via `--backend cpu`.
+
+```bash
+sbatch benchmarks/slurm/probe.sh
+BACKEND=cpu WORKERS=8 BOOTSTRAP_ITERS=20 TARGET_LIMIT=128 \
+  sbatch --partition=general --qos=normal benchmarks/slurm/run_one.sh
+```
+
+`python -m benchmarks.campaign` assigns non-overlapping seeds. `python -m benchmarks.precision` gates are also imported by `benchmarks.precision.compare_precision`. CUDA correlation chunks and Ridge workspace bytes are CLI flags: `--correlation-target-batch-size` and `--ridge-workspace-bytes`. `--compute-dtype` casts at the mapper boundary; `--dtype` still changes data preparation as well.
+
+Screen JSON from Babel `general` is under [results/campaign](results/campaign/), with a short write-up in [results/campaign/SCREEN.md](results/campaign/SCREEN.md). Those 5-bootstrap × 128-target jobs are packing probes, not full IPS comparisons.

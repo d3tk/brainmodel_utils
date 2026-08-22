@@ -92,7 +92,7 @@ def test_cpu_smoke_benchmark():
 
     result = run_benchmarks(args)
 
-    assert result["schema_version"] == 2
+    assert result["schema_version"] == 3
     assert result["backend_effective"] == "cpu"
     assert result["backend_effective_by_workload"] == {
         "transfer": "cpu",

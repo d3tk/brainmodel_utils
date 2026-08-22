@@ -7,6 +7,7 @@ from .backends import (
     fit_grouped_ridge_cuda,
     make_resolved_regressor,
     resolve_backend,
+    resolve_correlation_target_batch_size,
     resolve_torch_backend,
     validate_backend,
 )
@@ -29,6 +30,9 @@ class PercentileNeuralMap(nm.NeuralMapBase):
         regression_kwargs={},
         weights_save_nm=None,
         store_correlations=True,
+        correlation_target_batch_size=None,
+        ridge_workspace_bytes=None,
+        correlation_dtype=None,
         backend="cpu",
     ):
         super().__init__()
@@ -54,6 +58,10 @@ class PercentileNeuralMap(nm.NeuralMapBase):
         self._backend = validate_backend(backend)
         self._resolved_backend = None
         self._store_correlations = store_correlations
+        self._correlation_target_batch_size = correlation_target_batch_size
+        self._ridge_workspace_bytes = ridge_workspace_bytes
+        self._correlation_dtype = correlation_dtype
+        self._cuda_batch_report = None
 
     def _gather_correlations(self, X, Y):
         """
@@ -78,6 +86,8 @@ class PercentileNeuralMap(nm.NeuralMapBase):
                 Y,
                 self._percentile,
                 return_correlations=self._store_correlations,
+                target_batch_size=self._correlation_target_batch_size,
+                dtype=self._correlation_dtype,
             )
             return
 
@@ -152,8 +162,36 @@ class PercentileNeuralMap(nm.NeuralMapBase):
                 int(indices.size) for indices in self._source_indices
             ]
             self._mappers, self._grouped_mapper = fit_grouped_ridge_cuda(
-                X, Y, self._source_indices, self._regression_kwargs
+                X,
+                Y,
+                self._source_indices,
+                self._regression_kwargs,
+                workspace_bytes=self._ridge_workspace_bytes,
             )
+            grouped = self._grouped_mapper
+            self._cuda_batch_report = {
+                "correlation_target_batch_size_requested": (
+                    self._correlation_target_batch_size
+                ),
+                "correlation_target_batch_size_effective": (
+                    resolve_correlation_target_batch_size(
+                        self._n_targets, self._correlation_target_batch_size
+                    )
+                ),
+                "ridge_workspace_bytes_requested": getattr(
+                    grouped, "workspace_bytes", self._ridge_workspace_bytes
+                ),
+                "ridge_batch_size_effective": getattr(grouped, "batch_size", None),
+                "ridge_bytes_per_target": getattr(grouped, "bytes_per_target", None),
+                "ridge_promoted_to_float64": getattr(
+                    grouped, "promoted_to_float64", False
+                ),
+                "correlation_dtype": (
+                    None
+                    if self._correlation_dtype is None
+                    else str(np.dtype(self._correlation_dtype))
+                ),
+            }
             if self._weights_save_nm is not None:
                 self._weights = [mapper.coef_ for mapper in self._mappers]
         else:

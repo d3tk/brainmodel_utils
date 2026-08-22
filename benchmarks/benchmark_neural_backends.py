@@ -23,7 +23,14 @@ import sklearn
 from brainmodel_utils.metrics.consistency import get_linregress_consistency
 from brainmodel_utils.neural_mappers import PercentileNeuralMap, SKLinearNeuralMap
 from brainmodel_utils.neural_mappers import backends as neural_backends
+from brainmodel_utils.neural_mappers.profiling import record_phases
 from brainmodel_utils.neural_mappers.utils import generate_train_test_splits
+from benchmarks.telemetry import (
+    GpuSampler,
+    collect_host_inventory,
+    host_faults_and_swap,
+    summarize_gpu_samples,
+)
 
 SUITES = {
     "smoke": {
@@ -68,7 +75,7 @@ WORKLOAD_KEYS = {
 REGION_ROIS = {"IPS": ("IPS_L", "IPS_R")}
 NEURAL_SERIES_PATH = "processing/ophys/TwoPhotonSeriesFunctionalGreenProcessed"
 SELECTED_SOURCE_DETAIL_LIMIT = 256
-BENCHMARK_SCHEMA_VERSION = 2
+BENCHMARK_SCHEMA_VERSION = 3
 
 THREAD_ENV_VARS = (
     "OMP_NUM_THREADS",
@@ -381,60 +388,19 @@ def _select_cuda_device(gpu_index, require_torch):
 class _GpuReader:
     def __init__(self, device_index):
         self.device_index = device_index
-        self.method = None
-        self.error = None
-        self._pynvml = None
-        self._handle = None
-        try:
-            import pynvml
-        except ImportError as error:
-            if shutil.which("nvidia-smi") is not None:
-                self.method = "nvidia-smi"
-            else:
-                self.error = str(error)
-            return
-        try:
-            pynvml.nvmlInit()
-            self._handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
-            self._pynvml = pynvml
-            self.method = "nvml"
-        except (pynvml.NVMLError, OSError) as error:
-            if shutil.which("nvidia-smi") is not None:
-                self.method = "nvidia-smi"
-            else:
-                self.error = str(error)
+        self.sampler = GpuSampler(device_index)
+        self.method = self.sampler.method
+        self.error = self.sampler.error
+        self.identity = self.sampler.identity
 
-    def sample(self):
-        if self.method == "nvml":
-            try:
-                memory = self._pynvml.nvmlDeviceGetMemoryInfo(self._handle)
-                utilization = self._pynvml.nvmlDeviceGetUtilizationRates(self._handle)
-            except self._pynvml.NVMLError as error:
-                self.error = str(error)
-                return None, None
-            return int(memory.used), float(utilization.gpu)
-        if self.method == "nvidia-smi":
-            output = _run_nvidia_smi(
-                [
-                    f"--id={self.device_index}",
-                    "--query-gpu=memory.used,utilization.gpu",
-                    "--format=csv,noheader,nounits",
-                ]
-            )
-            if output:
-                try:
-                    row = next(csv.reader([output], skipinitialspace=True))
-                    return int(float(row[0]) * 1024 * 1024), float(row[1])
-                except (IndexError, ValueError) as error:
-                    self.error = str(error)
-        return None, None
+    def sample(self, pids=None):
+        sample = self.sampler.sample(pids=pids) or {}
+        self.error = self.sampler.error
+        return sample
 
     def close(self):
-        if self._pynvml is not None:
-            try:
-                self._pynvml.nvmlShutdown()
-            except self._pynvml.NVMLError as error:
-                self.error = str(error)
+        self.sampler.close()
+        self.error = self.sampler.error
 
 
 class ResourceMonitor:
@@ -451,11 +417,15 @@ class ResourceMonitor:
         self.gpu_start_memory = None
         self.peak_gpu_memory = None
         self.peak_gpu_utilization = None
+        self.peak_process_gpu_memory = None
+        self.gpu_samples = []
+        self.host_samples = []
         self.error = None
         self.cpu_start = None
         self.cpu_tick_baseline = {}
         self.cpu_tick_latest = {}
         self.wall_start = None
+        self.host_start = host_faults_and_swap(self.root_pid)
 
     def _sample(self):
         driver_rss = _pid_rss_bytes(self.root_pid)
@@ -470,8 +440,14 @@ class ResourceMonitor:
                 continue
             self.cpu_tick_baseline.setdefault(pid, 0)
             self.cpu_tick_latest[pid] = ticks
+        elapsed = None if self.wall_start is None else time.perf_counter() - self.wall_start
         if self.gpu_reader is not None:
-            memory, utilization = self.gpu_reader.sample()
+            sample = self.gpu_reader.sample(pids=_process_tree_pids(self.root_pid)) or {}
+            sample["elapsed_seconds"] = elapsed
+            self.gpu_samples.append(sample)
+            memory = sample.get("device_memory_used_bytes")
+            utilization = sample.get("utilization_percent")
+            process_memory = sample.get("process_memory_used_bytes")
             if memory is not None:
                 if self.gpu_start_memory is None:
                     self.gpu_start_memory = memory
@@ -482,6 +458,16 @@ class ResourceMonitor:
                 if self.peak_gpu_utilization is None:
                     self.peak_gpu_utilization = utilization
                 self.peak_gpu_utilization = max(self.peak_gpu_utilization, utilization)
+            if process_memory is not None:
+                if self.peak_process_gpu_memory is None:
+                    self.peak_process_gpu_memory = process_memory
+                self.peak_process_gpu_memory = max(
+                    self.peak_process_gpu_memory, process_memory
+                )
+        host = host_faults_and_swap(self.root_pid)
+        host["elapsed_seconds"] = elapsed
+        host["rss_bytes"] = tree_rss
+        self.host_samples.append(host)
         self.samples += 1
 
     def _run(self):
@@ -528,23 +514,32 @@ class ResourceMonitor:
             self.gpu_reader.close()
         peak_tree = self.peak_tree_rss or None
         baseline = self.rss_start
+        gpu_summary = summarize_gpu_samples(self.gpu_samples)
+        identity = (
+            self.gpu_reader.identity if self.gpu_reader is not None else None
+        )
         gpu_result = {
             "sampled": self.gpu_reader is not None,
             "method": self.gpu_reader.method if self.gpu_reader is not None else None,
             "device_index": self.gpu_reader.device_index
             if self.gpu_reader is not None
             else None,
+            "identity": identity,
             "samples": self.samples if self.gpu_reader is not None else 0,
-            "memory_scope": "whole_device",
+            "memory_scope": "uuid_resolved_device",
             "memory_start_bytes": self.gpu_start_memory,
             "peak_memory_used_bytes": self.peak_gpu_memory,
             "peak_memory_increase_bytes": _positive_delta(
                 self.peak_gpu_memory, self.gpu_start_memory
             ),
+            "peak_process_memory_used_bytes": self.peak_process_gpu_memory,
             "peak_utilization_percent": self.peak_gpu_utilization,
+            "time_series": gpu_summary,
+            "series": _compact_gpu_series(self.gpu_samples),
             "error": self.error
             or (self.gpu_reader.error if self.gpu_reader is not None else None),
         }
+        host_end = host_faults_and_swap(self.root_pid)
         return {
             "memory_scope": "driver_and_descendant_processes",
             "rss_start_bytes": baseline,
@@ -554,11 +549,31 @@ class ResourceMonitor:
             "peak_child_rss_bytes": max(0, (peak_tree or 0) - self.peak_driver_rss)
             if peak_tree is not None
             else None,
+            "host_start": self.host_start,
+            "host_end": host_end,
             "gpu": gpu_result,
             "monitor_error": self.error,
             "wall_seconds": wall_seconds,
             "cpu": cpu,
         }
+
+
+def _compact_gpu_series(samples, limit=256):
+    if not samples:
+        return []
+    stride = max(1, int(math.ceil(len(samples) / float(limit))))
+    keys = (
+        "elapsed_seconds",
+        "utilization_percent",
+        "device_memory_used_bytes",
+        "process_memory_used_bytes",
+        "power_watts",
+        "temperature_c",
+        "sm_clock_mhz",
+        "pcie_tx_kib_per_sec",
+        "pcie_rx_kib_per_sec",
+    )
+    return [{key: sample.get(key) for key in keys} for sample in samples[::stride]]
 
 
 def _positive_delta(value, baseline):
@@ -598,12 +613,18 @@ def _supports_backend(mapper_class):
 
 
 def _mapper_options(
-    mapper_class, requested_backend, effective_backend, regression_kwargs
+    mapper_class,
+    requested_backend,
+    effective_backend,
+    regression_kwargs,
+    extra=None,
 ):
     options = {
         "regression_type": "Ridge",
         "regression_kwargs": regression_kwargs,
     }
+    if extra:
+        options.update(extra)
     if _supports_backend(mapper_class):
         options["backend"] = requested_backend
     elif effective_backend != "cpu":
@@ -611,6 +632,22 @@ def _mapper_options(
             f"{mapper_class.__name__} does not expose the requested backend API"
         )
     return options
+
+
+def _percentile_extras(args):
+    extras = {}
+    batch_size = getattr(args, "correlation_target_batch_size", None)
+    if batch_size is not None:
+        extras["correlation_target_batch_size"] = (
+            "all" if str(batch_size).lower() == "all" else int(batch_size)
+        )
+    workspace = getattr(args, "ridge_workspace_bytes", None)
+    if workspace is not None:
+        extras["ridge_workspace_bytes"] = workspace
+    correlation_dtype = getattr(args, "correlation_dtype", None)
+    if correlation_dtype is not None:
+        extras["correlation_dtype"] = np.dtype(correlation_dtype)
+    return extras
 
 
 class TimedPercentileNeuralMap(PercentileNeuralMap):
@@ -750,11 +787,55 @@ def _load_neural_timestamps(nwb_path):
     }
 
 
-def _event_files(root, fly_id, direction):
-    pilot = Path(root) / "inter_animal_consistency" / "two_fly_pilot"
-    window = pilot / "event_tensors" / "short" / f"{fly_id}_{direction}.npz"
-    bouts = pilot / "events" / f"{fly_id}_turn_bouts.csv"
-    return window, bouts
+PROTOCOL_RELATIVE_DT = 0.532
+PROTOCOL_RELATIVE_START = -15.0
+PROTOCOL_RELATIVE_BINS = 39
+DEFAULT_CLUSTER_EVENTS_DIR = Path(
+    "/data/group_data/neuroagents_lab/autonomous-drosophila/outputs/"
+    "interanimal/turn_m15_p0p4_v1/events"
+)
+
+
+def protocol_relative_times():
+    return PROTOCOL_RELATIVE_START + PROTOCOL_RELATIVE_DT * np.arange(
+        PROTOCOL_RELATIVE_BINS, dtype=np.float64
+    )
+
+
+def _event_files(root, fly_id, direction, events_dir=None):
+    candidates = []
+    extra = []
+    if events_dir:
+        extra.append(Path(events_dir))
+    env_dir = os.environ.get("EVENTS_DIR")
+    if env_dir:
+        extra.append(Path(env_dir))
+    extra.append(DEFAULT_CLUSTER_EVENTS_DIR)
+    extra.append(Path(root) / "inter_animal_consistency" / "two_fly_pilot")
+    seen = set()
+    for base in extra:
+        base = Path(base)
+        key = str(base)
+        if key in seen:
+            continue
+        seen.add(key)
+        candidates.append(
+            {
+                "window": base / "event_tensors" / "short" / f"{fly_id}_{direction}.npz",
+                "bouts": base / "events" / f"{fly_id}_turn_bouts.csv",
+            }
+        )
+        candidates.append(
+            {
+                "window": base / f"{fly_id}_{direction}.npz",
+                "bouts": base / f"{fly_id}_turn_bouts.csv",
+            }
+        )
+    for candidate in candidates:
+        if candidate["window"].is_file():
+            return candidate["window"], candidate["bouts"]
+    first = candidates[0]
+    return first["window"], first["bouts"]
 
 
 def _historical_event_times(path, direction):
@@ -773,25 +854,45 @@ def _historical_event_times(path, direction):
     return np.asarray(values, dtype=np.float64)
 
 
-def _load_events(root, fly_id, direction, event_source):
+def _load_events(root, fly_id, direction, event_source, events_dir=None):
     if event_source not in ("validated", "historical"):
         raise ValueError(f"unknown event source: {event_source}")
-    window_path, bouts_path = _event_files(root, fly_id, direction)
+    window_path, bouts_path = _event_files(
+        root, fly_id, direction, events_dir=events_dir
+    )
     if not window_path.is_file():
         raise ValueError(f"event window does not exist: {window_path}")
     with np.load(str(window_path), allow_pickle=False) as window:
-        missing = {"event_times", "relative_times"}.difference(window.files)
-        if missing:
-            raise ValueError(
-                "event window is missing arrays: {}".format(", ".join(sorted(missing)))
-            )
-        relative_times = np.asarray(window["relative_times"], dtype=np.float64)
+        files = set(window.files)
+        if "relative_times" not in files and "event_times" not in files:
+            raise ValueError(f"event window is missing event_times/relative_times: {window_path}")
+        relative_times = (
+            np.asarray(window["relative_times"], dtype=np.float64)
+            if "relative_times" in files
+            else protocol_relative_times()
+        )
+        npz_event_times = (
+            np.asarray(window["event_times"], dtype=np.float64)
+            if "event_times" in files
+            else None
+        )
         if event_source == "validated":
-            event_times = np.asarray(window["event_times"], dtype=np.float64)
+            if npz_event_times is None:
+                raise ValueError(f"event window is missing event_times: {window_path}")
+            event_times = npz_event_times
         else:
-            if not bouts_path.is_file():
+            if bouts_path.is_file():
+                event_times = _historical_event_times(bouts_path, direction)
+            elif npz_event_times is not None:
+                event_times = npz_event_times
+            else:
                 raise ValueError(f"event CSV does not exist: {bouts_path}")
-            event_times = _historical_event_times(bouts_path, direction)
+        if os.environ.get("PROTOCOL_RELATIVE_TIMES", "").lower() in {
+            "1",
+            "true",
+            "yes",
+        }:
+            relative_times = protocol_relative_times()
     if event_times.size < 2:
         raise ValueError(f"{fly_id} has fewer than two {direction} events")
     if relative_times.size < 2:
@@ -804,7 +905,10 @@ def _load_events(root, fly_id, direction, event_source):
         "window_file": _path_record(window_path),
     }
     if event_source == "historical":
-        provenance["event_file"] = _path_record(bouts_path)
+        if bouts_path.is_file():
+            provenance["event_file"] = _path_record(bouts_path)
+        else:
+            provenance["event_times_from"] = "npz"
     return event_times, relative_times, provenance
 
 
@@ -952,6 +1056,7 @@ def load_fly_data(
     event_source,
     dtype,
     target_limit=None,
+    events_dir=None,
 ):
     started = time.perf_counter()
     root = Path(root).resolve()
@@ -962,10 +1067,10 @@ def load_fly_data(
         raise ValueError(f"unsupported region: {region}")
     roi_names = REGION_ROIS[region]
     source_events, source_relative, source_event_info = _load_events(
-        root, source_fly, direction, event_source
+        root, source_fly, direction, event_source, events_dir=events_dir
     )
     target_events, target_relative, target_event_info = _load_events(
-        root, target_fly, direction, event_source
+        root, target_fly, direction, event_source, events_dir=events_dir
     )
     if not np.array_equal(source_relative, target_relative):
         raise ValueError("source and target use different relative-time grids")
@@ -1225,9 +1330,14 @@ def benchmark_percentile(
     percentile,
     monitor_interval,
     gpu_index,
+    extras=None,
 ):
     options = _mapper_options(
-        PercentileNeuralMap, backend, effective_backend, regression_kwargs
+        PercentileNeuralMap,
+        backend,
+        effective_backend,
+        regression_kwargs,
+        extra=extras,
     )
     options.update({"percentile": percentile, "identity": False})
     if effective_backend == "cuda":
@@ -1268,6 +1378,8 @@ def benchmark_percentile(
         "resources": resources,
     }
     result.update(_selected_source_report(mapper._num_source_units))
+    if getattr(mapper, "_cuda_batch_report", None) is not None:
+        result["cuda_batching"] = mapper._cuda_batch_report
     return result
 
 
@@ -1285,6 +1397,7 @@ def benchmark_consistency(
     gpu_index,
     consistency_map,
     percentile,
+    extras=None,
 ):
     if consistency_map == "ridge":
         mapper_options = _mapper_options(
@@ -1293,7 +1406,11 @@ def benchmark_consistency(
         map_kwargs = {"map_type": "sklinear", "map_kwargs": mapper_options}
     else:
         mapper_options = _mapper_options(
-            PercentileNeuralMap, backend, effective_backend, regression_kwargs
+            PercentileNeuralMap,
+            backend,
+            effective_backend,
+            regression_kwargs,
+            extra=extras,
         )
         mapper_options.update({"percentile": percentile, "identity": False})
         if effective_backend == "cuda":
@@ -1302,19 +1419,20 @@ def benchmark_consistency(
     monitor = ResourceMonitor(monitor_interval, effective_backend == "cuda", gpu_index)
     monitor.start()
     try:
-        result, total_seconds = _seconds(
-            lambda: get_linregress_consistency(
-                source=source,
-                target=target,
-                map_kwargs=map_kwargs,
-                num_bootstrap_iters=bootstrap_iters,
-                num_parallel_jobs=workers,
-                start_seed=seed,
-                metric="pearsonr",
-                splits=splits,
-            ),
-            effective_backend,
-        )
+        with record_phases() as phase_times:
+            result, total_seconds = _seconds(
+                lambda: get_linregress_consistency(
+                    source=source,
+                    target=target,
+                    map_kwargs=map_kwargs,
+                    num_bootstrap_iters=bootstrap_iters,
+                    num_parallel_jobs=workers,
+                    start_seed=seed,
+                    metric="pearsonr",
+                    splits=splits,
+                ),
+                effective_backend,
+            )
     finally:
         resources = monitor.stop()
     summaries = _consistency_metric_summaries(result)
@@ -1333,6 +1451,7 @@ def benchmark_consistency(
         "mean_test_r_xy_n_sb": primary["global"]["mean"],
         "ridge_parameters": dict(regression_kwargs),
         "resources": resources,
+        "phase_seconds": dict(phase_times),
     }
 
 
@@ -1481,6 +1600,7 @@ def _metadata(args, cuda_probe):
         "repository": _git_metadata(),
         "cuda_probe": cuda_probe,
         "gpu_devices": _gpu_inventory(),
+        "host_inventory": collect_host_inventory(),
         "process_peak_rss_bytes_at_start": _peak_rss_bytes(),
     }
 
@@ -1648,6 +1768,12 @@ def _validate_config(config, synthetic):
 
 
 def run_benchmarks(args):
+    if getattr(args, "inventory_only", False):
+        return {
+            "schema_version": BENCHMARK_SCHEMA_VERSION,
+            "inventory_only": True,
+            "metadata": _metadata(args, _cuda_probe(args.gpu_index)),
+        }
     config = _suite_config(args)
     dtype = np.dtype(args.dtype)
     if args.fixture and args.fly_data_root:
@@ -1668,6 +1794,7 @@ def run_benchmarks(args):
             args.event_source,
             dtype,
             target_limit=args.target_limit,
+            events_dir=getattr(args, "events_dir", None),
         )
         data_origin = "brezovec_fly"
     elif args.fixture:
@@ -1678,6 +1805,10 @@ def run_benchmarks(args):
         _validate_config(config, synthetic=True)
         source, target = make_correlated_data(config, args.seed, dtype)
         data_origin = "correlated_synthetic"
+    compute_dtype = getattr(args, "compute_dtype", None)
+    if compute_dtype is not None and np.dtype(compute_dtype) != source.dtype:
+        source = np.asarray(source, dtype=compute_dtype)
+        target = np.asarray(target, dtype=compute_dtype)
     config.update(
         {
             "stimuli": target.shape[1],
@@ -1828,6 +1959,7 @@ def run_benchmarks(args):
             config["percentile"],
             args.monitor_interval,
             args.gpu_index,
+            extras=_percentile_extras(args),
         )
     if "consistency" in workloads:
         consistency_backend = effective_backends["consistency"]
@@ -1845,6 +1977,7 @@ def run_benchmarks(args):
             args.gpu_index,
             args.consistency_map,
             config["percentile"],
+            extras=_percentile_extras(args),
         )
     result["metadata"]["process_peak_rss_bytes_at_end"] = _peak_rss_bytes()
     if args.reference_result:
@@ -1862,6 +1995,10 @@ def build_parser():
     parser.add_argument("--backend", choices=("cpu", "cuda", "auto"), default="cpu")
     parser.add_argument("--fixture", help="NPZ containing source and target arrays")
     parser.add_argument("--fly-data-root")
+    parser.add_argument(
+        "--events-dir",
+        help="optional directory with {fly}_{direction}.npz event files",
+    )
     parser.add_argument("--source-fly", default="fly_087")
     parser.add_argument("--target-fly", default="fly_089")
     parser.add_argument("--direction", choices=("left", "right"), default="right")
@@ -1897,6 +2034,25 @@ def build_parser():
     parser.add_argument("--monitor-interval", type=float, default=0.05)
     parser.add_argument("--transfer-repeats", type=int, default=3)
     parser.add_argument("--gpu-index", type=int, default=0)
+    parser.add_argument(
+        "--correlation-target-batch-size",
+        default="512",
+        help="CUDA correlation target chunk, or 'all'",
+    )
+    parser.add_argument("--ridge-workspace-bytes", type=int)
+    parser.add_argument(
+        "--correlation-dtype",
+        choices=("float32", "float64"),
+        help="CUDA correlation compute dtype; default is float32 hybrid",
+    )
+    parser.add_argument(
+        "--compute-dtype",
+        choices=("float32", "float64"),
+        help="cast loaded arrays at the mapper boundary without changing data prep",
+    )
+    parser.add_argument("--save-precision-artifacts")
+    parser.add_argument("--inventory-only", action="store_true")
+    parser.add_argument("--warmup", action="store_true")
     parser.add_argument("--stimuli", type=int)
     parser.add_argument("--sources", type=int)
     parser.add_argument("--targets", type=int)
@@ -1923,6 +2079,16 @@ def _validate_args(parser, args):
         parser.error("--transfer-repeats must be positive")
     if args.gpu_index < 0:
         parser.error("--gpu-index cannot be negative")
+    batch_size = getattr(args, "correlation_target_batch_size", None)
+    if batch_size is not None and str(batch_size).lower() != "all":
+        try:
+            if int(batch_size) < 1:
+                parser.error("--correlation-target-batch-size must be positive or 'all'")
+        except (TypeError, ValueError):
+            parser.error("--correlation-target-batch-size must be an integer or 'all'")
+    workspace = getattr(args, "ridge_workspace_bytes", None)
+    if workspace is not None and workspace < 1:
+        parser.error("--ridge-workspace-bytes must be positive")
 
 
 def main(argv=None):

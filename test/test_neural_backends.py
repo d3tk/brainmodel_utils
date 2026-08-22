@@ -291,7 +291,7 @@ def test_batched_ridge_solve_handles_float32_collinear_columns(perturbation):
     alpha = 1e-6
     expected = Ridge(alpha=alpha).fit(X.astype(np.float64), Y).predict(X)
 
-    weights, intercept = backends._solve_ridge(np, X, Y, alpha, True)
+    weights, intercept, _promoted = backends._solve_ridge(np, X, Y, alpha, True)
     actual = X @ weights + intercept
 
     assert weights.dtype == intercept.dtype == np.float32
