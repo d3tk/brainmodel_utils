@@ -63,6 +63,21 @@ fi
 if [[ -n "${DTYPE:-}" ]]; then
   cmd+=(--dtype "$DTYPE")
 fi
+if [[ -n "${COMPUTE_DTYPE:-}" ]]; then
+  cmd+=(--compute-dtype "$COMPUTE_DTYPE")
+fi
+if [[ -n "${CORRELATION_DTYPE:-}" ]]; then
+  cmd+=(--correlation-dtype "$CORRELATION_DTYPE")
+fi
+if [[ -n "${RIDGE_MAX_BATCH_SIZE:-}" ]]; then
+  cmd+=(--ridge-max-batch-size "$RIDGE_MAX_BATCH_SIZE")
+fi
+if [[ "${WARMUP:-0}" == "1" ]]; then
+  cmd+=(--warmup)
+fi
+if [[ "${SAVE_PRECISION:-0}" == "1" ]]; then
+  cmd+=(--save-precision)
+fi
 echo "host=$(hostname) job=${SLURM_JOB_ID:-none} backend=$BACKEND workers=$WORKERS"
 date -Is
 printf '%q ' "${cmd[@]}"

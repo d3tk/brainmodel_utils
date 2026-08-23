@@ -646,7 +646,12 @@ def _percentile_extras(args):
         extras["ridge_workspace_bytes"] = workspace
     correlation_dtype = getattr(args, "correlation_dtype", None)
     if correlation_dtype is not None:
-        extras["correlation_dtype"] = np.dtype(correlation_dtype)
+        extras["correlation_dtype"] = correlation_dtype
+    max_batch_size = getattr(args, "ridge_max_batch_size", None)
+    if max_batch_size is not None:
+        extras["ridge_max_batch_size"] = (
+            "all" if str(max_batch_size).lower() == "all" else int(max_batch_size)
+        )
     return extras
 
 
@@ -1383,6 +1388,18 @@ def benchmark_percentile(
     return result
 
 
+def _save_precision_metrics(path, result):
+    payload = {}
+    for split in ("train", "test"):
+        block = result[split]
+        for name, values in block.items():
+            payload["{}_{}".format(split, name)] = np.asarray(values)
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(path, **payload)
+    return str(path)
+
+
 def benchmark_consistency(
     source,
     target,
@@ -1398,6 +1415,8 @@ def benchmark_consistency(
     consistency_map,
     percentile,
     extras=None,
+    warmup=False,
+    precision_metrics_path=None,
 ):
     if consistency_map == "ridge":
         mapper_options = _mapper_options(
@@ -1416,6 +1435,18 @@ def benchmark_consistency(
         if effective_backend == "cuda":
             mapper_options["store_correlations"] = False
         map_kwargs = {"map_type": "percentile", "map_kwargs": mapper_options}
+    neural_backends.set_last_cuda_batch_report(None)
+    if warmup:
+        get_linregress_consistency(
+            source=source,
+            target=target,
+            map_kwargs=map_kwargs,
+            num_bootstrap_iters=1,
+            num_parallel_jobs=workers,
+            start_seed=seed,
+            metric="pearsonr",
+            splits=splits,
+        )
     monitor = ResourceMonitor(monitor_interval, effective_backend == "cuda", gpu_index)
     monitor.start()
     try:
@@ -1438,7 +1469,7 @@ def benchmark_consistency(
     summaries = _consistency_metric_summaries(result)
     primary = summaries["test"]["r_xy_n_sb"]
     metric = np.asarray(result["test"]["r_xy_n_sb"])
-    return {
+    payload = {
         "total_seconds": total_seconds,
         "bootstrap_iterations": bootstrap_iters,
         "train_test_splits": len(splits),
@@ -1452,7 +1483,16 @@ def benchmark_consistency(
         "ridge_parameters": dict(regression_kwargs),
         "resources": resources,
         "phase_seconds": dict(phase_times),
+        "warmup": bool(warmup),
     }
+    report = neural_backends.last_cuda_batch_report()
+    if report is not None:
+        payload["cuda_batching"] = report
+    if precision_metrics_path:
+        payload["precision_metrics_file"] = _save_precision_metrics(
+            precision_metrics_path, result
+        )
+    return payload
 
 
 def benchmark_transfers(
@@ -1978,6 +2018,8 @@ def run_benchmarks(args):
             args.consistency_map,
             config["percentile"],
             extras=_percentile_extras(args),
+            warmup=getattr(args, "warmup", False),
+            precision_metrics_path=getattr(args, "save_precision_artifacts", None),
         )
     result["metadata"]["process_peak_rss_bytes_at_end"] = _peak_rss_bytes()
     if args.reference_result:
@@ -2040,6 +2082,10 @@ def build_parser():
         help="CUDA correlation target chunk, or 'all'",
     )
     parser.add_argument("--ridge-workspace-bytes", type=int)
+    parser.add_argument(
+        "--ridge-max-batch-size",
+        help="CUDA Ridge target cap, or 'all' to let workspace control batch size",
+    )
     parser.add_argument(
         "--correlation-dtype",
         choices=("float32", "float64"),

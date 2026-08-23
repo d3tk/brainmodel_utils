@@ -9,13 +9,17 @@ __all__ = [
     "correlations_cuda",
     "cuda_available",
     "DEFAULT_CUDA_CORRELATION_TARGET_BATCH_SIZE",
+    "DEFAULT_CUDA_RIDGE_MAX_BATCH_SIZE",
     "DEFAULT_CUDA_RIDGE_WORKSPACE_BYTES",
     "fit_grouped_ridge_cuda",
+    "last_cuda_batch_report",
     "make_regressor",
     "make_resolved_regressor",
     "resolve_backend",
     "resolve_torch_backend",
     "resolve_correlation_target_batch_size",
+    "resolve_ridge_max_batch_size",
+    "set_last_cuda_batch_report",
     "torch_cuda_available",
     "validate_backend",
 ]
@@ -25,7 +29,37 @@ _CUDA_RIDGE_KWARGS = {"alpha", "fit_intercept", "solver"}
 _CUDA_RIDGE_SOLVERS = {"auto", "svd"}
 DEFAULT_CUDA_CORRELATION_TARGET_BATCH_SIZE = 512
 DEFAULT_CUDA_RIDGE_WORKSPACE_BYTES = 512 * 1024**2
+DEFAULT_CUDA_RIDGE_MAX_BATCH_SIZE = 1024
 _CUDA_CORRELATION_TARGET_BATCH_SIZE = DEFAULT_CUDA_CORRELATION_TARGET_BATCH_SIZE
+LAST_CUDA_BATCH_REPORT = None
+
+
+def resolve_ridge_max_batch_size(n_targets, max_batch_size=None):
+    n_targets = int(n_targets)
+    if n_targets < 1:
+        raise ValueError("n_targets must be positive")
+    if max_batch_size is None:
+        return min(n_targets, DEFAULT_CUDA_RIDGE_MAX_BATCH_SIZE)
+    if isinstance(max_batch_size, str):
+        if max_batch_size.lower() != "all":
+            raise ValueError("ridge max batch size must be a positive integer or 'all'")
+        return n_targets
+    max_batch_size = int(max_batch_size)
+    if max_batch_size < 1:
+        raise ValueError("ridge max batch size must be positive")
+    return min(n_targets, max_batch_size)
+
+
+def set_last_cuda_batch_report(report):
+    global LAST_CUDA_BATCH_REPORT
+    LAST_CUDA_BATCH_REPORT = None if report is None else dict(report)
+    return LAST_CUDA_BATCH_REPORT
+
+
+def last_cuda_batch_report():
+    if LAST_CUDA_BATCH_REPORT is None:
+        return None
+    return dict(LAST_CUDA_BATCH_REPORT)
 
 
 def resolve_correlation_target_batch_size(n_targets, target_batch_size=None):
@@ -414,7 +448,12 @@ def _solve_ridge(cupy, X, Y, alpha, fit_intercept):
 
 
 def _grouped_batch_size(
-    n_samples, n_features, n_targets, itemsize, workspace_bytes=None
+    n_samples,
+    n_features,
+    n_targets,
+    itemsize,
+    workspace_bytes=None,
+    max_batch_size=None,
 ):
     if workspace_bytes is None:
         workspace_bytes = DEFAULT_CUDA_RIDGE_WORKSPACE_BYTES
@@ -426,11 +465,17 @@ def _grouped_batch_size(
         3 * n_samples * n_features + 3 * matrix_width * matrix_width
     )
     fitted = max(1, workspace_bytes // max(1, bytes_per_target))
-    return max(1, min(n_targets, 1024, fitted)), bytes_per_target
+    cap = resolve_ridge_max_batch_size(n_targets, max_batch_size)
+    return max(1, min(n_targets, cap, fitted)), bytes_per_target
 
 
 def fit_grouped_ridge_cuda(
-    X, Y, source_indices, regression_kwargs, workspace_bytes=None
+    X,
+    Y,
+    source_indices,
+    regression_kwargs,
+    workspace_bytes=None,
+    max_batch_size=None,
 ):
     if not can_batch_cuda_ridge(regression_kwargs):
         raise ValueError("batched CUDA Ridge requires solver='auto' and alpha > 0.")
@@ -452,6 +497,7 @@ def fit_grouped_ridge_cuda(
         Y.shape[1],
         np.dtype(dtype).itemsize,
         workspace_bytes=workspace_bytes,
+        max_batch_size=max_batch_size,
     )
     alpha = float(regression_kwargs.get("alpha", 1.0))
     fit_intercept = regression_kwargs.get("fit_intercept", True)
@@ -492,6 +538,20 @@ def fit_grouped_ridge_cuda(
     )
     grouped.bytes_per_target = bytes_per_target
     grouped.promoted_to_float64 = promoted_to_float64
+    grouped.max_batch_size = resolve_ridge_max_batch_size(Y.shape[1], max_batch_size)
+    set_last_cuda_batch_report(
+        {
+            "n_samples": int(X.shape[0]),
+            "n_targets": int(Y.shape[1]),
+            "max_features": int(max_features),
+            "ridge_workspace_bytes": grouped.workspace_bytes,
+            "ridge_bytes_per_target": int(bytes_per_target),
+            "ridge_batch_size_effective": int(batch_size),
+            "ridge_max_batch_size_requested": max_batch_size,
+            "ridge_max_batch_size_effective": grouped.max_batch_size,
+            "ridge_promoted_to_float64": bool(promoted_to_float64),
+        }
+    )
     return models, grouped
 
 

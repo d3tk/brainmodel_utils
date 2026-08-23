@@ -1,0 +1,785 @@
+{
+  "backend_effective": "cpu",
+  "backend_effective_by_workload": {
+    "consistency": "cpu"
+  },
+  "backend_requested": "cpu",
+  "benchmarks": {
+    "linregress_consistency": {
+      "bootstrap_iterations": 64,
+      "finite_result_fraction": 0.5903485461685966,
+      "mapping": {
+        "map_kwargs": {
+          "backend": "cpu",
+          "correlation_target_batch_size": 512,
+          "identity": false,
+          "percentile": 99.0,
+          "regression_kwargs": {
+            "alpha": 1.0,
+            "fit_intercept": true
+          },
+          "regression_type": "Ridge"
+        },
+        "map_type": "percentile"
+      },
+      "mean_test_r_xy_n_sb": 0.5436209547838238,
+      "metric": "pearsonr",
+      "metric_summaries": {
+        "method": "bootstrap nanmean per target, then target nanmedian per fold",
+        "test": {
+          "denom_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.6270816852783802,
+              0.625387173168929,
+              0.6408181317023991,
+              0.6426004694997751,
+              0.7811301693461672
+            ],
+            "global": {
+              "finite_count": 5122903,
+              "finite_fraction": 0.5903485461685966,
+              "mean": 0.8319338237542447,
+              "median": 0.6941492413595198,
+              "total_count": 8677760
+            },
+            "median_across_folds": 0.6408181317023991
+          },
+          "r_xx": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.160156288960715,
+              0.22478566423843893,
+              0.04572021353022129,
+              0.15504165525106417,
+              0.8921747635084258
+            ],
+            "global": {
+              "finite_count": 8677760,
+              "finite_fraction": 1.0,
+              "mean": 0.310327852501716,
+              "median": 0.4073779428185277,
+              "total_count": 8677760
+            },
+            "median_across_folds": 0.160156288960715
+          },
+          "r_xx_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              -0.3800503764565426,
+              -0.15697575897333946,
+              -0.7770306523852628,
+              -0.4001487184294773,
+              0.9406928153625504
+            ],
+            "global": {
+              "finite_count": 8677760,
+              "finite_fraction": 1.0,
+              "mean": -0.3170006756353265,
+              "median": 0.5789176175415682,
+              "total_count": 8677760
+            },
+            "median_across_folds": -0.3800503764565426
+          },
+          "r_xy": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.13493170996336404,
+              0.1558592242586873,
+              0.14892056974404616,
+              0.336921931409074,
+              0.7966325499927747
+            ],
+            "global": {
+              "finite_count": 8677760,
+              "finite_fraction": 1.0,
+              "mean": 0.24194905251870258,
+              "median": 0.32310382930496395,
+              "total_count": 8677760
+            },
+            "median_across_folds": 0.1558592242586873
+          },
+          "r_xy_n_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.30624371263435457,
+              0.331017779314856,
+              0.3249998529589189,
+              0.7639627611840063,
+              1.0023501634419625
+            ],
+            "global": {
+              "finite_count": 5122903,
+              "finite_fraction": 0.5903485461685966,
+              "mean": 0.5436209547838238,
+              "median": 0.6835666815277092,
+              "total_count": 8677760
+            },
+            "median_across_folds": 0.331017779314856
+          },
+          "r_yy": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.12536634882759579,
+              0.12729088189041352,
+              0.1323766883829921,
+              0.18028941807119986,
+              0.5245245939121067
+            ],
+            "global": {
+              "finite_count": 8677760,
+              "finite_fraction": 1.0,
+              "mean": 0.1740253851176966,
+              "median": 0.21595172406739555,
+              "total_count": 8677760
+            },
+            "median_across_folds": 0.1323766883829921
+          },
+          "r_yy_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              -0.012876615933103974,
+              -0.012237548261906069,
+              0.009324759859286973,
+              0.11294452620213652,
+              0.6417179124241437
+            ],
+            "global": {
+              "finite_count": 8677760,
+              "finite_fraction": 1.0,
+              "mean": -0.4641614080730178,
+              "median": 0.3551978582586893,
+              "total_count": 8677760
+            },
+            "median_across_folds": 0.009324759859286973
+          }
+        },
+        "train": {
+          "denom_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.5448475654103064,
+              0.5469622785298636,
+              0.5503251997555094,
+              0.5412344847812114,
+              0.38874449237239755
+            ],
+            "global": {
+              "finite_count": 8004521,
+              "finite_fraction": 0.9224178820340733,
+              "mean": 0.5454040809877098,
+              "median": 0.5631303416474006,
+              "total_count": 8677760
+            },
+            "median_across_folds": 0.5448475654103064
+          },
+          "r_xx": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.4883728397063596,
+              0.4903226747352441,
+              0.495464002427785,
+              0.4803709655584029,
+              0.1934496452042916
+            ],
+            "global": {
+              "finite_count": 8677760,
+              "finite_fraction": 1.0,
+              "mean": 0.4083521023794259,
+              "median": 0.4407863261039613,
+              "total_count": 8677760
+            },
+            "median_across_folds": 0.4883728397063596
+          },
+          "r_xx_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.6423147069431934,
+              0.6448275661034455,
+              0.6495680485721528,
+              0.6345829580998383,
+              0.2805696550890968
+            ],
+            "global": {
+              "finite_count": 8677760,
+              "finite_fraction": 1.0,
+              "mean": 0.48899118709108147,
+              "median": 0.6118691135775645,
+              "total_count": 8677760
+            },
+            "median_across_folds": 0.6423147069431934
+          },
+          "r_xy": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.9246825672166353,
+              0.923769366152154,
+              0.9225463470270953,
+              0.925181233279549,
+              0.946188972476115
+            ],
+            "global": {
+              "finite_count": 8677760,
+              "finite_fraction": 1.0,
+              "mean": 0.9270931125573585,
+              "median": 0.9290063640864109,
+              "total_count": 8677760
+            },
+            "median_across_folds": 0.9246825672166353
+          },
+          "r_xy_n_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              1.9971344072314507,
+              1.9825470422608702,
+              1.9402845755999845,
+              2.0120050010729162,
+              4.254316107178875
+            ],
+            "global": {
+              "finite_count": 8004521,
+              "finite_fraction": 0.9224178820340733,
+              "mean": 2.914637050753525,
+              "median": 1.6421162302345889,
+              "total_count": 8677760
+            },
+            "median_across_folds": 1.9971344072314507
+          },
+          "r_yy": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.3031441749862474,
+              0.3030186621891938,
+              0.3079051300056499,
+              0.2995199438418129,
+              0.15002019970185734
+            ],
+            "global": {
+              "finite_count": 8677760,
+              "finite_fraction": 1.0,
+              "mean": 0.2735329794637323,
+              "median": 0.278417082151199,
+              "total_count": 8677760
+            },
+            "median_across_folds": 0.3030186621891938
+          },
+          "r_yy_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.44502976570140373,
+              0.44456235573685154,
+              0.4514958892183727,
+              0.44082919624747635,
+              0.22795369891297892
+            ],
+            "global": {
+              "finite_count": 8677760,
+              "finite_fraction": 1.0,
+              "mean": 0.35096451609188595,
+              "median": 0.43556533472268744,
+              "total_count": 8677760
+            },
+            "median_across_folds": 0.44456235573685154
+          }
+        }
+      },
+      "phase_seconds": {},
+      "resources": {
+        "cpu": {
+          "children_system_seconds": 0.0,
+          "children_user_seconds": 0.0,
+          "process_tree_seconds": 26257.97,
+          "resource_total_seconds": 54.96015500000001,
+          "scope": "sampled_process_tree_or_resource_max",
+          "self_system_seconds": 32.34999500000001,
+          "self_user_seconds": 22.61016,
+          "total_seconds": 26257.97,
+          "utilization_percent": 1566.6288349108133
+        },
+        "gpu": {
+          "device_index": null,
+          "error": null,
+          "identity": null,
+          "memory_scope": "uuid_resolved_device",
+          "memory_start_bytes": null,
+          "method": null,
+          "peak_memory_increase_bytes": null,
+          "peak_memory_used_bytes": null,
+          "peak_process_memory_used_bytes": null,
+          "peak_utilization_percent": null,
+          "sampled": false,
+          "samples": 0,
+          "series": [],
+          "time_series": {
+            "mean_device_memory_used_bytes": null,
+            "mean_memory_clock_mhz": null,
+            "mean_pcie_rx_kib_per_sec": null,
+            "mean_pcie_tx_kib_per_sec": null,
+            "mean_power_watts": null,
+            "mean_process_memory_used_bytes": null,
+            "mean_sm_clock_mhz": null,
+            "mean_utilization_percent": null,
+            "p95_power_watts": null,
+            "p95_utilization_percent": null,
+            "peak_device_memory_used_bytes": null,
+            "peak_process_memory_used_bytes": null,
+            "peak_temperature_c": null,
+            "peak_utilization_percent": null,
+            "samples": 0
+          }
+        },
+        "host_end": {
+          "host_swap_used_bytes": 0,
+          "major_faults": 5,
+          "minor_faults": 507273,
+          "vm_swap_bytes": 0
+        },
+        "host_start": {
+          "host_swap_used_bytes": 0,
+          "major_faults": 5,
+          "minor_faults": 298227,
+          "vm_swap_bytes": 0
+        },
+        "memory_scope": "driver_and_descendant_processes",
+        "monitor_error": null,
+        "peak_child_rss_bytes": 417287860224,
+        "peak_driver_rss_bytes": 9978413056,
+        "peak_rss_bytes": 427266273280,
+        "peak_rss_increase_bytes": 419255214080,
+        "rss_start_bytes": 8011059200,
+        "wall_seconds": 1676.081112186017
+      },
+      "result_shape": [
+        64,
+        5,
+        27118
+      ],
+      "ridge_parameters": {
+        "alpha": 1.0,
+        "fit_intercept": true
+      },
+      "total_seconds": 1676.0773290779907,
+      "train_test_splits": 5,
+      "warmup": false,
+      "workers": 16
+    }
+  },
+  "config": {
+    "bootstrap_iters": 64,
+    "consistency_map": "percentile",
+    "latent_dim": 64,
+    "noise_std": 0.2,
+    "percentile": 99.0,
+    "signal_sources": 32,
+    "sources": 27118,
+    "split_strategy": "blocked",
+    "splits": 5,
+    "stimuli": 30,
+    "targets": 27118,
+    "train_frac": 0.8,
+    "trials": 571
+  },
+  "dataset": {
+    "fixture": null,
+    "origin": "brezovec_fly",
+    "provenance": {
+      "dandiset": {
+        "doi": "10.48324/dandi.000727/0.240106.0043",
+        "file": {
+          "mtime_ns": 1704500379600334882,
+          "path": "/data/group_data/neuroagents_lab/neural_datasets/brezovec_drosophila_data/000727/dandiset.yaml",
+          "size_bytes": 6352
+        },
+        "identifier": "DANDI:000727",
+        "version": "0.240106.0043"
+      },
+      "direction": "right",
+      "interpolation": "linear with endpoint clamping",
+      "interpolation_queries": {
+        "source": {
+          "after_end_count": 0,
+          "before_start_count": 54,
+          "clamped_query_count": 54,
+          "events_with_clamped_queries": 2,
+          "query_count": 18720
+        },
+        "target": {
+          "after_end_count": 0,
+          "before_start_count": 54,
+          "clamped_query_count": 54,
+          "events_with_clamped_queries": 2,
+          "query_count": 17130
+        }
+      },
+      "preparation_seconds": 9.774253470997792,
+      "region": "IPS",
+      "relative_times": {
+        "count": 30,
+        "start": -15.0,
+        "stop": 0.4
+      },
+      "roi_h5": {
+        "mtime_ns": 1784759944859531311,
+        "path": "/data/group_data/neuroagents_lab/neural_datasets/brezovec_drosophila_data/000727/roi_activity.h5",
+        "size_bytes": 83788620764
+      },
+      "roi_order": [
+        "IPS_L",
+        "IPS_R"
+      ],
+      "root": "/data/group_data/neuroagents_lab/neural_datasets/brezovec_drosophila_data/000727",
+      "source_events": {
+        "event_count": 624,
+        "event_source": "historical",
+        "event_times_from": "npz",
+        "window_file": {
+          "mtime_ns": 1786374587535066959,
+          "path": "/data/group_data/neuroagents_lab/autonomous-drosophila/outputs/interanimal/turn_m15_p0p4_v1/events/fly_100_right.npz",
+          "size_bytes": 55938
+        }
+      },
+      "source_fly": "fly_100",
+      "source_nwb": {
+        "file": {
+          "mtime_ns": 1702231858490000009,
+          "path": "/data/group_data/neuroagents_lab/neural_datasets/brezovec_drosophila_data/000727/sub-fly-100/sub-fly-100_ses-20200702083849_behavior+image+ophys.nwb",
+          "size_bytes": 67681351575
+        },
+        "rate": 1.8797144377676087,
+        "samples": 3384,
+        "series_path": "processing/ophys/TwoPhotonSeriesFunctionalGreenProcessed",
+        "starting_time": 0.0,
+        "timestamp_storage": "implicit"
+      },
+      "source_roi_shapes": [
+        [
+          "IPS_L",
+          3384,
+          12990
+        ],
+        [
+          "IPS_R",
+          3384,
+          14128
+        ]
+      ],
+      "target_events": {
+        "event_count": 571,
+        "event_source": "historical",
+        "event_times_from": "npz",
+        "window_file": {
+          "mtime_ns": 1786374587156067510,
+          "path": "/data/group_data/neuroagents_lab/autonomous-drosophila/outputs/interanimal/turn_m15_p0p4_v1/events/fly_099_right.npz",
+          "size_bytes": 51274
+        }
+      },
+      "target_fly": "fly_099",
+      "target_nwb": {
+        "file": {
+          "mtime_ns": 1702231855200000047,
+          "path": "/data/group_data/neuroagents_lab/neural_datasets/brezovec_drosophila_data/000727/sub-fly-099/sub-fly-099_ses-20200627142647_behavior+image+ophys.nwb",
+          "size_bytes": 68193425704
+        },
+        "rate": 1.8797144377676087,
+        "samples": 3384,
+        "series_path": "processing/ophys/TwoPhotonSeriesFunctionalGreenProcessed",
+        "starting_time": 0.0,
+        "timestamp_storage": "implicit"
+      },
+      "target_roi_shapes": [
+        [
+          "IPS_L",
+          3384,
+          12990
+        ],
+        [
+          "IPS_R",
+          3384,
+          14128
+        ]
+      ],
+      "target_selection": {
+        "full_count": 27118,
+        "indices": null,
+        "is_slice": false,
+        "selected_count": 27118,
+        "strategy": "all"
+      }
+    },
+    "source": {
+      "bytes": 4061191680,
+      "dtype": "float64",
+      "shape": [
+        624,
+        30,
+        27118
+      ]
+    },
+    "split_strategy": "blocked",
+    "standalone_test_samples": 6,
+    "standalone_train_samples": 24,
+    "target": {
+      "bytes": 3716250720,
+      "dtype": "float64",
+      "shape": [
+        571,
+        30,
+        27118
+      ]
+    },
+    "train_test_indices": [
+      {
+        "test": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "train": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29
+        ]
+      },
+      {
+        "test": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29
+        ]
+      },
+      {
+        "test": [
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29
+        ]
+      },
+      {
+        "test": [
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29
+        ]
+      },
+      {
+        "test": [
+          24,
+          25,
+          26,
+          27,
+          28,
+          29
+        ],
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "cpu": {
+      "affinity_cpus": 32,
+      "logical_cpus": 64,
+      "model": "AMD EPYC 9354 32-Core Processor"
+    },
+    "cuda_probe": {
+      "available": null,
+      "device_index": 0,
+      "reason": "not probed for CPU benchmark"
+    },
+    "gpu_devices": [
+      {
+        "driver_version": "610.43.02",
+        "index": 0,
+        "memory_total_bytes": 51527024640,
+        "name": "NVIDIA RTX 6000 Ada Generation",
+        "uuid": "GPU-121637b6-0b3b-6b42-c80e-f54f798a3f85"
+      }
+    ],
+    "host_inventory": {
+      "cores_per_socket": 32,
+      "cpu_model": "AMD EPYC 9354 32-Core Processor",
+      "cuda_visible_devices": "0",
+      "cwd_disk_free_bytes": 56611569664,
+      "cwd_disk_total_bytes": 107374182400,
+      "gpus": [
+        {
+          "driver_version": "610.43.02",
+          "max_memory_clock_mhz": 10001.0,
+          "max_sm_clock_mhz": 3105.0,
+          "memory_total_bytes": 51527024640,
+          "name": "NVIDIA RTX 6000 Ada Generation",
+          "nvml_index": 0,
+          "pci_bus_id": "00000000:01:00.0",
+          "power_limit_watts": 300.0,
+          "uuid": "GPU-121637b6-0b3b-6b42-c80e-f54f798a3f85"
+        }
+      ],
+      "hostname": "babel-x5-20",
+      "local_tmp": "/tmp/dkutsche",
+      "logical_cpus": 64,
+      "memory_total_bytes": 1622554193920,
+      "numa_nodes": 2,
+      "physical_cores_estimate": 64,
+      "siblings_per_socket": 32,
+      "slurm_job_gpus": "1",
+      "slurm_job_id": "10197953",
+      "smt_enabled": false,
+      "sockets": 2,
+      "swap_total_bytes": 4294963200
+    },
+    "libraries": {
+      "h5py": "3.16.0",
+      "numpy": "2.0.2",
+      "scikit_learn": "1.8.0",
+      "scipy": "1.17.1",
+      "torch": "2.11.0+cu129"
+    },
+    "platform": "Linux-5.14.0-687.25.1.el9_8.x86_64-x86_64-with-glibc2.34",
+    "process_peak_rss_bytes_at_end": 10016051200,
+    "process_peak_rss_bytes_at_start": 8517054464,
+    "python": "3.12.13",
+    "repository": {
+      "commit": "b84707ef983ad513d2d22d480e83b667178b0787",
+      "dirty": true,
+      "root": "/home/dkutsche/brainmodel_utils"
+    },
+    "threads": {
+      "benchmark_workers": 16,
+      "environment": {
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1"
+      }
+    },
+    "timestamp_utc": "2026-08-23T18:22:50Z"
+  },
+  "schema_version": 3,
+  "seed": 1064,
+  "split_seed": 0,
+  "suite": "production",
+  "workloads": [
+    "consistency"
+  ]
+}

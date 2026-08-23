@@ -4,9 +4,11 @@ from benchmarks.campaign import assign_seed_ranges
 from benchmarks.precision import compare_precision, jaccard
 from benchmarks.telemetry import parse_cuda_visible_devices, resolve_gpu_identity
 from brainmodel_utils.neural_mappers.backends import (
+    DEFAULT_CUDA_RIDGE_MAX_BATCH_SIZE,
     DEFAULT_CUDA_RIDGE_WORKSPACE_BYTES,
     _grouped_batch_size,
     resolve_correlation_target_batch_size,
+    resolve_ridge_max_batch_size,
 )
 
 
@@ -65,6 +67,40 @@ def test_correlation_and_ridge_batch_helpers_record_effective_sizes():
     assert default[0] >= smaller[0]
     assert larger[0] >= default[0]
     assert default[1] > 0
+    capped = _grouped_batch_size(31, 200, 4000, 4, workspace_bytes=8 * 1024**3)
+    uncapped = _grouped_batch_size(
+        31, 200, 4000, 4, workspace_bytes=8 * 1024**3, max_batch_size="all"
+    )
+    assert capped[0] == DEFAULT_CUDA_RIDGE_MAX_BATCH_SIZE
+    assert uncapped[0] == 4000
+    assert resolve_ridge_max_batch_size(27118, None) == 1024
+    assert resolve_ridge_max_batch_size(27118, "all") == 27118
+
+
+def test_campaign_forwards_ridge_batch_and_precision_flags(tmp_path):
+    from benchmarks.campaign import assign_seed_ranges, build_command, build_parser
+
+    args = build_parser().parse_args(
+        [
+            "--output-dir",
+            str(tmp_path),
+            "--ridge-max-batch-size",
+            "all",
+            "--warmup",
+            "--save-precision",
+        ]
+    )
+    assignment = build_command(
+        args.python,
+        args.benchmark_module,
+        assign_seed_ranges(1000, 2, 1)[0],
+        args,
+    )
+    command = assignment["command"]
+    assert "--ridge-max-batch-size" in command
+    assert "all" in command
+    assert "--warmup" in command
+    assert "--save-precision-artifacts" in command
 
 
 def test_precision_gates_catch_metric_and_mask_failures():

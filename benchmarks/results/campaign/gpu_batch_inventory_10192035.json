@@ -1,0 +1,90 @@
+{
+  "inventory_only": true,
+  "metadata": {
+    "cpu": {
+      "affinity_cpus": 8,
+      "logical_cpus": 48,
+      "model": "AMD EPYC 9224 24-Core Processor"
+    },
+    "cuda_probe": {
+      "available": true,
+      "cuml_version": "25.10.00",
+      "cupy_version": "14.2.0",
+      "device_count": 1,
+      "device_index": 0,
+      "reason": null,
+      "torch_cuda_available": true,
+      "torch_device_count": 1,
+      "torch_version": "2.9.1+cu128"
+    },
+    "gpu_devices": [
+      {
+        "driver_version": "610.43.02",
+        "index": 0,
+        "memory_total_bytes": 51527024640,
+        "name": "NVIDIA RTX 6000 Ada Generation",
+        "uuid": "GPU-f2e7c4d9-dd29-e018-c312-7d2bd69989e4"
+      }
+    ],
+    "host_inventory": {
+      "cores_per_socket": 24,
+      "cpu_model": "AMD EPYC 9224 24-Core Processor",
+      "cuda_visible_devices": "0",
+      "cwd_disk_free_bytes": 57374932992,
+      "cwd_disk_total_bytes": 107374182400,
+      "gpus": [
+        {
+          "driver_version": "610.43.02",
+          "max_memory_clock_mhz": 10001.0,
+          "max_sm_clock_mhz": 3105.0,
+          "memory_total_bytes": 51527024640,
+          "name": "NVIDIA RTX 6000 Ada Generation",
+          "nvml_index": 0,
+          "pci_bus_id": "00000000:C5:00.0",
+          "power_limit_watts": 300.0,
+          "uuid": "GPU-f2e7c4d9-dd29-e018-c312-7d2bd69989e4"
+        }
+      ],
+      "hostname": "babel-x9-16",
+      "local_tmp": "/tmp/dkutsche",
+      "logical_cpus": 48,
+      "memory_total_bytes": 810773950464,
+      "numa_nodes": 2,
+      "physical_cores_estimate": 48,
+      "siblings_per_socket": 24,
+      "slurm_job_gpus": "7",
+      "slurm_job_id": "10192035",
+      "smt_enabled": false,
+      "sockets": 2,
+      "swap_total_bytes": 4294963200
+    },
+    "libraries": {
+      "cuml": "25.10.00",
+      "cupy": "14.2.0",
+      "h5py": "3.16.0",
+      "numpy": "2.2.6",
+      "scikit_learn": "1.7.2",
+      "scipy": "1.18.0",
+      "torch": "2.9.1+cu128"
+    },
+    "platform": "Linux-5.14.0-687.25.1.el9_8.x86_64-x86_64-with-glibc2.34",
+    "process_peak_rss_bytes_at_start": 946716672,
+    "python": "3.12.13",
+    "repository": {
+      "commit": "b84707ef983ad513d2d22d480e83b667178b0787",
+      "dirty": true,
+      "root": "/home/dkutsche/brainmodel_utils"
+    },
+    "threads": {
+      "benchmark_workers": 1,
+      "environment": {
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1"
+      }
+    },
+    "timestamp_utc": "2026-08-22T21:07:37Z"
+  },
+  "schema_version": 3
+}

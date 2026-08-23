@@ -1,5 +1,9 @@
 # Babel `general` screen (2026-08-21)
 
+Campaign status is in [CAMPAIGN.md](../../CAMPAIGN.md). The four questions stay separate: one-job latency is not comparisons per GPU-hour. Babel uses the IPS nested-CV packing (`fly_100` → `fly_099`, 27,118 IPS voxels, 30 bins). The written `fly_087` 39-bin protocol is local evidence only.
+
+Stage 1 (submitted after the 200-bootstrap trio): 2-bootstrap CUDA batching with the Ridge 1024-target cap lifted, CPU 64-bootstrap workers `{1,2,4,12,16,25}`, and a 20-bootstrap 1,024-target precision screen. The finished CUDA-1 job used 2.13 GiB of 48 GiB at 19% mean SM util; extra VRAM cannot help one comparison until that cap is removed.
+
 Tiny jobs below are **not** full IPS comparisons. They are 5-bootstrap, 128-target slices used to test packing, event loading, and CUDA bring-up.
 
 ## Full IPS-CV-matched comparison (2026-08-22)

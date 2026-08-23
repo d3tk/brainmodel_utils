@@ -8,7 +8,9 @@ from .backends import (
     make_resolved_regressor,
     resolve_backend,
     resolve_correlation_target_batch_size,
+    resolve_ridge_max_batch_size,
     resolve_torch_backend,
+    set_last_cuda_batch_report,
     validate_backend,
 )
 
@@ -32,6 +34,7 @@ class PercentileNeuralMap(nm.NeuralMapBase):
         store_correlations=True,
         correlation_target_batch_size=None,
         ridge_workspace_bytes=None,
+        ridge_max_batch_size=None,
         correlation_dtype=None,
         backend="cpu",
     ):
@@ -60,6 +63,7 @@ class PercentileNeuralMap(nm.NeuralMapBase):
         self._store_correlations = store_correlations
         self._correlation_target_batch_size = correlation_target_batch_size
         self._ridge_workspace_bytes = ridge_workspace_bytes
+        self._ridge_max_batch_size = ridge_max_batch_size
         self._correlation_dtype = correlation_dtype
         self._cuda_batch_report = None
 
@@ -167,9 +171,12 @@ class PercentileNeuralMap(nm.NeuralMapBase):
                 self._source_indices,
                 self._regression_kwargs,
                 workspace_bytes=self._ridge_workspace_bytes,
+                max_batch_size=self._ridge_max_batch_size,
             )
             grouped = self._grouped_mapper
             self._cuda_batch_report = {
+                "n_samples": int(X.shape[0]),
+                "n_targets": int(self._n_targets),
                 "correlation_target_batch_size_requested": (
                     self._correlation_target_batch_size
                 ),
@@ -183,6 +190,10 @@ class PercentileNeuralMap(nm.NeuralMapBase):
                 ),
                 "ridge_batch_size_effective": getattr(grouped, "batch_size", None),
                 "ridge_bytes_per_target": getattr(grouped, "bytes_per_target", None),
+                "ridge_max_batch_size_requested": self._ridge_max_batch_size,
+                "ridge_max_batch_size_effective": resolve_ridge_max_batch_size(
+                    self._n_targets, self._ridge_max_batch_size
+                ),
                 "ridge_promoted_to_float64": getattr(
                     grouped, "promoted_to_float64", False
                 ),
@@ -192,6 +203,7 @@ class PercentileNeuralMap(nm.NeuralMapBase):
                     else str(np.dtype(self._correlation_dtype))
                 ),
             }
+            set_last_cuda_batch_report(self._cuda_batch_report)
             if self._weights_save_nm is not None:
                 self._weights = [mapper.coef_ for mapper in self._mappers]
         else:

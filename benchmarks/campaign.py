@@ -113,6 +113,17 @@ def build_command(python, benchmark_module, assignment, args):
         command.extend(["--compute-dtype", args.compute_dtype])
     if args.correlation_dtype is not None:
         command.extend(["--correlation-dtype", args.correlation_dtype])
+    if args.ridge_max_batch_size is not None:
+        command.extend(["--ridge-max-batch-size", str(args.ridge_max_batch_size)])
+    if args.warmup:
+        command.append("--warmup")
+    if args.save_precision:
+        command.extend(
+            [
+                "--save-precision-artifacts",
+                str(Path(output).with_suffix(".metrics.npz")),
+            ]
+        )
     assignment = dict(assignment)
     assignment["output"] = str(output)
     assignment["command"] = command
@@ -161,9 +172,16 @@ def build_parser():
     parser.add_argument("--target-limit", type=int)
     parser.add_argument("--correlation-target-batch-size")
     parser.add_argument("--ridge-workspace-bytes", type=int)
+    parser.add_argument("--ridge-max-batch-size")
     parser.add_argument("--dtype")
     parser.add_argument("--compute-dtype")
     parser.add_argument("--correlation-dtype")
+    parser.add_argument("--warmup", action="store_true")
+    parser.add_argument(
+        "--save-precision",
+        action="store_true",
+        help="write paired consistency metric arrays next to the JSON result",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument(
