@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 
 from benchmarks.campaign import assign_seed_ranges
@@ -75,6 +77,169 @@ def test_correlation_and_ridge_batch_helpers_record_effective_sizes():
     assert uncapped[0] == 4000
     assert resolve_ridge_max_batch_size(27118, None) == 1024
     assert resolve_ridge_max_batch_size(27118, "all") == 27118
+
+
+def test_campaign_shards_split_contiguous_seeds():
+    from benchmarks.campaign import assign_seed_ranges, build_parser, main
+
+    args = build_parser().parse_args(
+        [
+            "--output-dir",
+            "/tmp",
+            "--shards",
+            "4",
+            "--bootstrap-iters",
+            "64",
+            "--seed",
+            "1000",
+            "--dry-run",
+        ]
+    )
+    total = args.bootstrap_iters
+    assert total % 4 == 0
+    per_shard = 16
+    ranges = assign_seed_ranges(1000, per_shard, 4)
+    assert [item["seed"] for item in ranges] == [1000, 1016, 1032, 1048]
+    assert [item["bootstrap_iters"] for item in ranges] == [16, 16, 16, 16]
+    assert ranges[-1]["seed"] + per_shard == 1000 + 64
+
+
+def test_merge_shards_concatenates_bootstrap_axis_and_masks(tmp_path):
+    from benchmarks.merge_shards import compare_merged, merge_raw_arrays, write_arrays
+
+    def shard(seed, values):
+        arrays = {
+            "train": {"r_xy_n_sb": np.asarray(values, dtype=np.float64)},
+            "test": {"r_xy_n_sb": np.asarray(values, dtype=np.float64) + 1.0},
+        }
+        return {
+            "path": tmp_path / "s{}.json".format(seed),
+            "document": {
+                "backend_requested": "cpu",
+                "seed": seed,
+                "config": {"percentile": 99.0, "splits": 2},
+                "dataset": {
+                    "split_strategy": "blocked",
+                    "source": {"dtype": "float64", "shape": [4, 6]},
+                    "target": {"dtype": "float64", "shape": [4, 6]},
+                    "train_test_indices": [{"train": [0, 1], "test": [2, 2]}],
+                },
+                "benchmarks": {
+                    "linregress_consistency": {
+                        "mapping": {"map_type": "percentile"},
+                        "bootstrap_iterations": values.shape[0],
+                        "total_seconds": 1.0,
+                    }
+                },
+            },
+            "arrays": arrays,
+            "seed": seed,
+            "bootstrap_iters": values.shape[0],
+            "seconds": 1.0,
+        }
+
+    first = np.array([[[1.0, np.nan]], [[2.0, 3.0]]])
+    second = np.array([[[4.0, 5.0]], [[np.nan, 6.0]]])
+    _, merged = merge_raw_arrays([shard(20, second), shard(10, first)])
+    assert merged["test"]["r_xy_n_sb"].shape[0] == 4
+    np.testing.assert_allclose(
+        merged["train"]["r_xy_n_sb"][:, 0, 0], [1.0, 2.0, 4.0, np.nan], equal_nan=True
+    )
+    reference = {
+        "train": {"r_xy_n_sb": merged["train"]["r_xy_n_sb"].copy()},
+        "test": {"r_xy_n_sb": merged["test"]["r_xy_n_sb"].copy()},
+    }
+    report = compare_merged(merged, reference, atol=1e-12)
+    assert report["passed"]
+    assert report["identical_finite_masks"]
+
+
+def test_campaign_shards_dry_run_emits_contiguous_commands(tmp_path, capsys):
+    from benchmarks.campaign import main
+
+    code = main(
+        [
+            "--output-dir",
+            str(tmp_path),
+            "--shards",
+            "4",
+            "--bootstrap-iters",
+            "64",
+            "--seed",
+            "1000",
+            "--dry-run",
+        ]
+    )
+    assert code == 0
+    output = capsys.readouterr().out
+    assert output.count("--bootstrap-iters 16") == 4
+    assert "--seed 1000" in output
+    assert "--seed 1016" in output
+    assert "--seed 1032" in output
+    assert "--seed 1048" in output
+    assert "--save-precision-artifacts" in output
+
+
+def test_sharded_smoke_matches_monolithic_float64(tmp_path):
+    from benchmarks.benchmark_neural_backends import main as bench_main
+    from benchmarks.merge_shards import (
+        arrays_from_npz,
+        compare_merged,
+        merge_shard_files,
+    )
+
+    rng = np.random.default_rng(0)
+    fixture = tmp_path / "fixture.npz"
+    np.savez(
+        fixture,
+        source=rng.normal(size=(6, 24, 16)),
+        target=rng.normal(size=(6, 24, 8)),
+    )
+
+    def run(output, seed, boots):
+        metrics = Path(output).with_suffix(".metrics.npz")
+        code = bench_main(
+            [
+                "--suite",
+                "smoke",
+                "--backend",
+                "cpu",
+                "--dtype",
+                "float64",
+                "--fixture",
+                str(fixture),
+                "--workloads",
+                "consistency",
+                "--workers",
+                "1",
+                "--bootstrap-iters",
+                str(boots),
+                "--seed",
+                str(seed),
+                "--split-seed",
+                "0",
+                "--output",
+                str(output),
+                "--save-precision-artifacts",
+                str(metrics),
+            ]
+        )
+        assert code == 0
+        return metrics
+
+    mono = tmp_path / "mono.json"
+    shard_a = tmp_path / "shard0.json"
+    shard_b = tmp_path / "shard1.json"
+    merged = tmp_path / "merged.json"
+    run(mono, 1000, 4)
+    run(shard_a, 1000, 2)
+    run(shard_b, 1002, 2)
+    _, merged_arrays = merge_shard_files([shard_a, shard_b], merged)
+    report = compare_merged(
+        merged_arrays, arrays_from_npz(mono.with_suffix(".metrics.npz")), atol=1e-12
+    )
+    assert report["identical_finite_masks"]
+    assert report["passed"]
 
 
 def test_campaign_forwards_ridge_batch_and_precision_flags(tmp_path):

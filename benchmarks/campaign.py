@@ -5,7 +5,10 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
+
+from benchmarks.merge_shards import merge_shard_files
 
 
 DEFAULT_FLY_DATA_ROOT = (
@@ -127,6 +130,9 @@ def build_command(python, benchmark_module, assignment, args):
     assignment = dict(assignment)
     assignment["output"] = str(output)
     assignment["command"] = command
+    if getattr(args, "device_ids", None):
+        device = args.device_ids[assignment["job_index"] % len(args.device_ids)]
+        assignment["env"] = {"CUDA_VISIBLE_DEVICES": str(device)}
     return assignment
 
 
@@ -137,7 +143,11 @@ def run_local(assignments, max_concurrent):
     while pending or running:
         while pending and len(running) < max_concurrent:
             assignment = pending.pop(0)
-            process = subprocess.Popen(assignment["command"])
+            env = os.environ.copy()
+            extra = assignment.get("env")
+            if extra:
+                env.update(extra)
+            process = subprocess.Popen(assignment["command"], env=env)
             running.append((assignment, process))
         if not running:
             break
@@ -158,6 +168,16 @@ def build_parser():
     parser.add_argument("--seed", type=int, default=1000)
     parser.add_argument("--bootstrap-iters", type=int, default=200)
     parser.add_argument("--jobs", type=int, default=1)
+    parser.add_argument(
+        "--shards",
+        type=int,
+        default=1,
+        help="split one comparison into this many workers=1 processes, then merge raw bootstraps",
+    )
+    parser.add_argument(
+        "--devices",
+        help="comma-separated CUDA device ids pinned round-robin onto shards",
+    )
     parser.add_argument("--replica", type=int, default=0)
     parser.add_argument("--max-concurrent", type=int, default=1)
     parser.add_argument("--fly-data-root", default=os.environ.get("FLY_DATA_ROOT", DEFAULT_FLY_DATA_ROOT))
@@ -193,10 +213,27 @@ def build_parser():
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
+    args.device_ids = None
+    if args.devices:
+        args.device_ids = [item.strip() for item in args.devices.split(",") if item.strip()]
+        if not args.device_ids:
+            parser.error("--devices must list at least one device")
+    total_bootstraps = args.bootstrap_iters
+    n_jobs = args.jobs
+    if args.shards > 1:
+        if args.backend == "cuda" and args.workers != 1:
+            parser.error("CUDA shards require --workers 1")
+        if total_bootstraps % args.shards != 0:
+            parser.error("--bootstrap-iters must divide evenly by --shards")
+        n_jobs = args.shards
+        args.bootstrap_iters = total_bootstraps // args.shards
+        args.save_precision = True
+        if args.max_concurrent == 1:
+            args.max_concurrent = args.shards
     assignments = [
         build_command(args.python, args.benchmark_module, assignment, args)
         for assignment in assign_seed_ranges(
-            args.seed, args.bootstrap_iters, args.jobs, args.replica
+            args.seed, args.bootstrap_iters, n_jobs, args.replica
         )
     ]
     manifest = Path(args.output_dir) / "{}_r{}_manifest.json".format(
@@ -220,9 +257,20 @@ def main(argv=None):
         for assignment in assignments:
             print(" ".join(assignment["command"]))
         return 0
+    started = time.perf_counter()
     failures = run_local(assignments, args.max_concurrent)
     if failures:
         return 1
+    if args.shards > 1:
+        merged_path = Path(args.output_dir) / "{}_r{}_merged.json".format(
+            args.stem, args.replica
+        )
+        merge_shard_files(
+            [assignment["output"] for assignment in assignments],
+            merged_path,
+            wall_seconds=time.perf_counter() - started,
+        )
+        print(merged_path)
     return 0
 
 

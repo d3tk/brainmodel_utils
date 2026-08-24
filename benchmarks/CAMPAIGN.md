@@ -44,3 +44,9 @@ Identical allocation each time: 32 CPUs, 1 GPU, 448 GiB. 64 bootstraps per compa
 | CUDA 1× / 2× / 4× / 8× | 64-boot, Ridge-all 4 GiB, workers=1 |
 
 The 20-boot packing jobs were cancelled. 200-boot packing only for the CPU and CUDA throughput winners.
+
+## Latency via bootstrap shards
+
+CUDA `--workers` stays 1. A shard is a separate process with a contiguous seed range. `benchmarks.merge_shards` concatenates raw metric tensors along the bootstrap axis and recomputes summaries. Do not average JSON means.
+
+Screen (one A100 80GB, float64, 64 bootstraps): 1×64, 2×32, 4×16, 8×8. Wall time includes load, warmup, and merge. Promote the winner to 200 bootstraps, then multi-GPU.

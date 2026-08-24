@@ -1,0 +1,35 @@
+Submitting campaign stage 2
+10193368 --job-name=bm-cuda20-def --cpus-per-task=8 --mem=96G --time=02:00:00 --partition=general --qos=normal --account=anayebi --gres=gpu:1 --export=ALL,BACKEND=cuda,WORKERS=1,BOOTSTRAP_ITERS=20,SEED=1000,STEM=cuda20_default,PYTHON=/home/dkutsche/brainmodel_utils/.venv/bin/python,SOURCE_FLY=fly_100,TARGET_FLY=fly_099,DIRECTION=right,WARMUP=1 /home/dkutsche/brainmodel_utils/benchmarks/slurm/run_one.sh
+10193369 --job-name=bm-cuda20-opt --cpus-per-task=8 --mem=96G --time=02:00:00 --partition=general --qos=normal --account=anayebi --gres=gpu:1 --export=ALL,BACKEND=cuda,WORKERS=1,BOOTSTRAP_ITERS=20,SEED=1000,STEM=cuda20_ridge4g_all,PYTHON=/home/dkutsche/brainmodel_utils/.venv/bin/python,SOURCE_FLY=fly_100,TARGET_FLY=fly_099,DIRECTION=right,WARMUP=1,RIDGE_MAX_BATCH_SIZE=all,RIDGE_WORKSPACE_BYTES=4294967296 /home/dkutsche/brainmodel_utils/benchmarks/slurm/run_one.sh
+10193370 --job-name=bm-prec-cpu_f64 --cpus-per-task=8 --mem=96G --time=01:00:00 --partition=general --qos=normal --account=anayebi --gres=gpu:1 --export=ALL,BACKEND=cpu,WORKERS=8,BOOTSTRAP_ITERS=20,TARGET_LIMIT=1024,SEED=1000,STEM=prec20t1024_cpu_f64,PYTHON=/home/dkutsche/autonomous-drosophila/.venv/bin/python,DTYPE=float64,COMPUTE_DTYPE=float64,SAVE_PRECISION=1,SOURCE_FLY=fly_100,TARGET_FLY=fly_099,DIRECTION=right /home/dkutsche/brainmodel_utils/benchmarks/slurm/run_one.sh
+--- queue ---
+             JOBID PARTITION             NAME ST       TIME  NODES NODELIST(REASON)
+          10193370   general  bm-prec-cpu_f64 PD       0:00      1 (Priority)
+          10193369   general    bm-cuda20-opt PD       0:00      1 (Priority)
+          10193368   general    bm-cuda20-def PD       0:00      1 (Priority)
+          10192036   general      bm-cpu64-w1  R    4:45:34      1 babel-x9-20
+          10176707   preempt ips-cv-gpu24-s21  R 1-01:05:38      1 babel-p5-16
+          10193339   preempt ips-cv-gpu24-fil  R       0:13      1 babel-n5-20
+          10193327   preempt ips-cv-gpu24-fil  R      11:54      1 babel-p9-24
+          10193328   preempt ips-cv-gpu24-fil  R      11:54      1 babel-q9-28
+          10193329   preempt ips-cv-gpu24-fil  R      11:54      1 babel-q9-32
+          10193330   preempt ips-cv-gpu24-fil  R      11:54      1 babel-s9-20
+          10193331   preempt ips-cv-gpu24-fil  R      11:54      1 babel-w5-24
+          10193332   preempt ips-cv-gpu24-fil  R      11:54      1 babel-w5-28
+          10193333   preempt ips-cv-gpu24-fil  R      11:54      1 babel-w5-28
+          10193334   preempt ips-cv-gpu24-fil  R      11:54      1 babel-w9-26
+          10193335   preempt ips-cv-gpu24-fil  R      11:54      1 babel-x5-24
+          10193336   preempt ips-cv-gpu24-fil  R      11:54      1 babel-x5-32
+          10193337   preempt ips-cv-gpu24-fil  R      11:54      1 babel-x5-32
+          10193338   preempt ips-cv-gpu24-fil  R      11:54      1 babel-y9-24
+          10176702   preempt ips-cv-gpu24-s16  R    3:01:52      1 babel-w5-16
+          10176703   preempt ips-cv-gpu24-s17  R    3:01:52      1 babel-w5-32
+          10176686   preempt  ips-cv-gpu24-s0  R    6:50:07      1 babel-s9-20
+          10176693   preempt  ips-cv-gpu24-s7  R    6:50:07      1 babel-s9-24
+          10176706   preempt ips-cv-gpu24-s20  R 1-16:20:42      1 babel-t9-20
+          10176699   preempt ips-cv-gpu24-s13  R 1-18:43:41      1 babel-t9-20
+          10176687   preempt  ips-cv-gpu24-s1  R 2-02:18:12      1 babel-l9-28
+          10176688   preempt  ips-cv-gpu24-s2  R 2-02:18:12      1 babel-l9-28
+          10176689   preempt  ips-cv-gpu24-s3  R 2-02:18:12      1 babel-m9-32
+          10176690   preempt  ips-cv-gpu24-s4  R 2-02:18:12      1 babel-m9-32
+10193468 cuda200 ridge4g all

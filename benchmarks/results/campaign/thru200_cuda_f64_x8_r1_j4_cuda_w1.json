@@ -1,0 +1,3643 @@
+{
+  "backend_effective": "cuda",
+  "backend_effective_by_workload": {
+    "consistency": "cuda"
+  },
+  "backend_requested": "cuda",
+  "benchmarks": {
+    "linregress_consistency": {
+      "bootstrap_iterations": 200,
+      "cuda_batching": {
+        "correlation_dtype": "float64",
+        "correlation_target_batch_size_effective": 512,
+        "correlation_target_batch_size_requested": 512,
+        "n_samples": 24,
+        "n_targets": 27118,
+        "ridge_batch_size_effective": 24772,
+        "ridge_bytes_per_target": 173376,
+        "ridge_max_batch_size_effective": 27118,
+        "ridge_max_batch_size_requested": "all",
+        "ridge_promoted_to_float64": false,
+        "ridge_workspace_bytes_requested": 4294967296
+      },
+      "finite_result_fraction": 0.5907507190795781,
+      "mapping": {
+        "map_kwargs": {
+          "backend": "cuda",
+          "correlation_dtype": "float64",
+          "correlation_target_batch_size": 512,
+          "identity": false,
+          "percentile": 99.0,
+          "regression_kwargs": {
+            "alpha": 1.0,
+            "fit_intercept": true
+          },
+          "regression_type": "Ridge",
+          "ridge_max_batch_size": "all",
+          "ridge_workspace_bytes": 4294967296,
+          "store_correlations": false
+        },
+        "map_type": "percentile"
+      },
+      "mean_test_r_xy_n_sb": 0.5451354595881425,
+      "metric": "pearsonr",
+      "metric_summaries": {
+        "method": "bootstrap nanmean per target, then target nanmedian per fold",
+        "test": {
+          "denom_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.629884657274482,
+              0.6273179499946467,
+              0.6417526825343052,
+              0.6370075525096028,
+              0.7807810545202811
+            ],
+            "global": {
+              "finite_count": 16019978,
+              "finite_fraction": 0.5907507190795781,
+              "mean": 0.8348680751435318,
+              "median": 0.694918570292888,
+              "total_count": 27118000
+            },
+            "median_across_folds": 0.6370075525096028
+          },
+          "r_xx": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.14337103569296228,
+              0.20997168696902033,
+              0.045941281554939276,
+              0.15018860255469893,
+              0.8912030237624214
+            ],
+            "global": {
+              "finite_count": 27118000,
+              "finite_fraction": 1.0,
+              "mean": 0.30611171540543286,
+              "median": 0.40109152844811047,
+              "total_count": 27118000
+            },
+            "median_across_folds": 0.15018860255469893
+          },
+          "r_xx_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              -0.511300483159005,
+              -0.2510264237528856,
+              -0.8406882506967014,
+              -0.4704492470689153,
+              0.9400562444887511
+            ],
+            "global": {
+              "finite_count": 27118000,
+              "finite_fraction": 1.0,
+              "mean": -0.33443707277363366,
+              "median": 0.5725415082516002,
+              "total_count": 27118000
+            },
+            "median_across_folds": -0.4704492470689153
+          },
+          "r_xy": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.1349317099633636,
+              0.1558592242586867,
+              0.14892056974404694,
+              0.33692193140907356,
+              0.7966325499927747
+            ],
+            "global": {
+              "finite_count": 27118000,
+              "finite_fraction": 1.0,
+              "mean": 0.24194905251870186,
+              "median": 0.323103829304964,
+              "total_count": 27118000
+            },
+            "median_across_folds": 0.1558592242586867
+          },
+          "r_xy_n_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.3168051054946845,
+              0.3477580623686862,
+              0.34692759957228464,
+              0.8017072579945198,
+              1.0034044215358997
+            ],
+            "global": {
+              "finite_count": 16019978,
+              "finite_fraction": 0.5907507190795781,
+              "mean": 0.5451354595881425,
+              "median": 0.6825731799945752,
+              "total_count": 27118000
+            },
+            "median_across_folds": 0.3477580623686862
+          },
+          "r_yy": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.1290953334671448,
+              0.12714914597149007,
+              0.1347298495241648,
+              0.18444144528225392,
+              0.5268253373312295
+            ],
+            "global": {
+              "finite_count": 27118000,
+              "finite_fraction": 1.0,
+              "mean": 0.17690382266934068,
+              "median": 0.21958034271512136,
+              "total_count": 27118000
+            },
+            "median_across_folds": 0.1347298495241648
+          },
+          "r_yy_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              -0.009886975571755949,
+              -0.01481402669754601,
+              0.008062737968607464,
+              0.11549924732793106,
+              0.6431222671214125
+            ],
+            "global": {
+              "finite_count": 27118000,
+              "finite_fraction": 1.0,
+              "mean": -0.45580671845614545,
+              "median": 0.36009163976237124,
+              "total_count": 27118000
+            },
+            "median_across_folds": 0.008062737968607464
+          }
+        },
+        "train": {
+          "denom_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.5452639718944509,
+              0.5480130297474209,
+              0.5512842115749828,
+              0.5413600027875932,
+              0.38793031349882234
+            ],
+            "global": {
+              "finite_count": 25040060,
+              "finite_fraction": 0.9233741426358876,
+              "mean": 0.5463255582250504,
+              "median": 0.5643667691142858,
+              "total_count": 27118000
+            },
+            "median_across_folds": 0.5452639718944509
+          },
+          "r_xx": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.48715251974924556,
+              0.49074127486893604,
+              0.494878888904005,
+              0.4797848127941959,
+              0.19504841860190394
+            ],
+            "global": {
+              "finite_count": 27118000,
+              "finite_fraction": 1.0,
+              "mean": 0.4084067046799325,
+              "median": 0.44079404025237623,
+              "total_count": 27118000
+            },
+            "median_across_folds": 0.48715251974924556
+          },
+          "r_xx_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.6409638743410554,
+              0.6443768499283676,
+              0.6490158540314463,
+              0.6337514896852411,
+              0.28051397312889104
+            ],
+            "global": {
+              "finite_count": 27118000,
+              "finite_fraction": 1.0,
+              "mean": 0.4888675491289963,
+              "median": 0.6118765457624529,
+              "total_count": 27118000
+            },
+            "median_across_folds": 0.6409638743410554
+          },
+          "r_xy": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.9246825672166397,
+              0.9237693661521563,
+              0.9225463470270944,
+              0.925181233279549,
+              0.9461889724761172
+            ],
+            "global": {
+              "finite_count": 27118000,
+              "finite_fraction": 1.0,
+              "mean": 0.9270931125573587,
+              "median": 0.929006364086411,
+              "total_count": 27118000
+            },
+            "median_across_folds": 0.9246825672166397
+          },
+          "r_xy_n_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              2.0295044797050217,
+              2.0056702746703525,
+              1.976033955047214,
+              2.044477974693501,
+              4.43461459623215
+            ],
+            "global": {
+              "finite_count": 25040060,
+              "finite_fraction": 0.9233741426358876,
+              "mean": 2.911822315151837,
+              "median": 1.6386865910511865,
+              "total_count": 27118000
+            },
+            "median_across_folds": 2.0295044797050217
+          },
+          "r_yy": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.3043215926420255,
+              0.3039828588195119,
+              0.30939511180253854,
+              0.30038734216438934,
+              0.15369979198402478
+            ],
+            "global": {
+              "finite_count": 27118000,
+              "finite_fraction": 1.0,
+              "mean": 0.2755789979731755,
+              "median": 0.2806470246375866,
+              "total_count": 27118000
+            },
+            "median_across_folds": 0.3039828588195119
+          },
+          "r_yy_sb": {
+            "bootstrap_mean_target_median_by_fold": [
+              0.4472836088695563,
+              0.44607726304400774,
+              0.4527357114250613,
+              0.4418971879144105,
+              0.23306338621138686
+            ],
+            "global": {
+              "finite_count": 27118000,
+              "finite_fraction": 1.0,
+              "mean": 0.3536815913237578,
+              "median": 0.43828942595170994,
+              "total_count": 27118000
+            },
+            "median_across_folds": 0.44607726304400774
+          }
+        }
+      },
+      "phase_seconds": {
+        "correlation": 2290.084696836362,
+        "cpu_metrics": 31.50638243238791,
+        "ridge": 4112.741414456716
+      },
+      "resources": {
+        "cpu": {
+          "children_system_seconds": 0.0,
+          "children_user_seconds": 0.0,
+          "process_tree_seconds": 7570.91,
+          "resource_total_seconds": 7570.916551,
+          "scope": "sampled_process_tree_or_resource_max",
+          "self_system_seconds": 1267.628209,
+          "self_user_seconds": 6303.288342,
+          "total_seconds": 7570.916551,
+          "utilization_percent": 85.71196989117846
+        },
+        "gpu": {
+          "device_index": 0,
+          "error": null,
+          "identity": {
+            "compute_index": 0,
+            "cuda_visible_devices": "0",
+            "driver_version": "610.43.02",
+            "max_memory_clock_mhz": 1512.0,
+            "max_sm_clock_mhz": 1410.0,
+            "memory_total_bytes": 85899345920,
+            "name": "NVIDIA A100 80GB PCIe",
+            "nvml_index": 0,
+            "pci_bus_id": "00000000:C1:00.0",
+            "power_limit_watts": 300.0,
+            "uuid": "GPU-39ae3dcd-2485-fa55-284a-e2f91bdd3661"
+          },
+          "memory_scope": "uuid_resolved_device",
+          "memory_start_bytes": 20063322112,
+          "method": "nvml",
+          "peak_memory_increase_bytes": 24767365120,
+          "peak_memory_used_bytes": 44830687232,
+          "peak_process_memory_used_bytes": 5666504704,
+          "peak_utilization_percent": 100.0,
+          "sampled": true,
+          "samples": 58828,
+          "series": [
+            {
+              "device_memory_used_bytes": 20063322112,
+              "elapsed_seconds": 0.0001839489850681275,
+              "pcie_rx_kib_per_sec": 162792.0,
+              "pcie_tx_kib_per_sec": 458984.0,
+              "power_watts": 143.427,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 20298203136,
+              "elapsed_seconds": 35.53958902400336,
+              "pcie_rx_kib_per_sec": 17786230.0,
+              "pcie_tx_kib_per_sec": 6380029.0,
+              "power_watts": 260.74,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 21703294976,
+              "elapsed_seconds": 69.82073819197831,
+              "pcie_rx_kib_per_sec": 4079296.0,
+              "pcie_tx_kib_per_sec": 722851.0,
+              "power_watts": 225.051,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11502747648,
+              "elapsed_seconds": 105.33364059400628,
+              "pcie_rx_kib_per_sec": 118115.0,
+              "pcie_tx_kib_per_sec": 860498.0,
+              "power_watts": 256.55,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 19815858176,
+              "elapsed_seconds": 143.18728661499335,
+              "pcie_rx_kib_per_sec": 12498876.0,
+              "pcie_tx_kib_per_sec": 2069384.0,
+              "power_watts": 260.136,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 99.0
+            },
+            {
+              "device_memory_used_bytes": 16523329536,
+              "elapsed_seconds": 177.09521814598702,
+              "pcie_rx_kib_per_sec": 12312011.0,
+              "pcie_tx_kib_per_sec": 1356689.0,
+              "power_watts": 244.277,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 13176274944,
+              "elapsed_seconds": 213.01691750399186,
+              "pcie_rx_kib_per_sec": 1535546.0,
+              "pcie_tx_kib_per_sec": 906347.0,
+              "power_watts": 270.07,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16126967808,
+              "elapsed_seconds": 247.87303690900444,
+              "pcie_rx_kib_per_sec": 114013.0,
+              "pcie_tx_kib_per_sec": 89257.0,
+              "power_watts": 249.207,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11725045760,
+              "elapsed_seconds": 280.16040563597926,
+              "pcie_rx_kib_per_sec": 2057958.0,
+              "pcie_tx_kib_per_sec": 1012695.0,
+              "power_watts": 237.952,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 19593560064,
+              "elapsed_seconds": 313.7508627449861,
+              "pcie_rx_kib_per_sec": 15224462.0,
+              "pcie_tx_kib_per_sec": 2258300.0,
+              "power_watts": 198.908,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11792154624,
+              "elapsed_seconds": 349.6792828379839,
+              "pcie_rx_kib_per_sec": 76269.0,
+              "pcie_tx_kib_per_sec": 382763.0,
+              "power_watts": 258.009,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1395.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11729240064,
+              "elapsed_seconds": 385.4510110160045,
+              "pcie_rx_kib_per_sec": 91503.0,
+              "pcie_tx_kib_per_sec": 308984.0,
+              "power_watts": 228.83,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14212268032,
+              "elapsed_seconds": 423.0967253279814,
+              "pcie_rx_kib_per_sec": 602783.0,
+              "pcie_tx_kib_per_sec": 852783.0,
+              "power_watts": 99.794,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 22336634880,
+              "elapsed_seconds": 459.1857638069778,
+              "pcie_rx_kib_per_sec": 29210595.0,
+              "pcie_tx_kib_per_sec": 3124755.0,
+              "power_watts": 96.433,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 83.0
+            },
+            {
+              "device_memory_used_bytes": 22724608000,
+              "elapsed_seconds": 491.656129977986,
+              "pcie_rx_kib_per_sec": 16235205.0,
+              "pcie_tx_kib_per_sec": 1462890.0,
+              "power_watts": 184.465,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11255283712,
+              "elapsed_seconds": 526.0878282180056,
+              "pcie_rx_kib_per_sec": 52587.0,
+              "pcie_tx_kib_per_sec": 516015.0,
+              "power_watts": 236.665,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 22569418752,
+              "elapsed_seconds": 563.660728124989,
+              "pcie_rx_kib_per_sec": 15587744.0,
+              "pcie_tx_kib_per_sec": 2323535.0,
+              "power_watts": 104.7,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 13111263232,
+              "elapsed_seconds": 598.8995275269845,
+              "pcie_rx_kib_per_sec": 11862207.0,
+              "pcie_tx_kib_per_sec": 253759.0,
+              "power_watts": 242.981,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 17074880512,
+              "elapsed_seconds": 635.9784397309995,
+              "pcie_rx_kib_per_sec": 22108789.0,
+              "pcie_tx_kib_per_sec": 2584472.0,
+              "power_watts": 110.292,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11599216640,
+              "elapsed_seconds": 668.6875001979934,
+              "pcie_rx_kib_per_sec": 2099.0,
+              "pcie_tx_kib_per_sec": 2001.0,
+              "power_watts": 98.99,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 79.0
+            },
+            {
+              "device_memory_used_bytes": 19690029056,
+              "elapsed_seconds": 701.3417340239976,
+              "pcie_rx_kib_per_sec": 14482568.0,
+              "pcie_tx_kib_per_sec": 1752246.0,
+              "power_watts": 248.527,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 95.0
+            },
+            {
+              "device_memory_used_bytes": 11435638784,
+              "elapsed_seconds": 733.8285056839813,
+              "pcie_rx_kib_per_sec": 12254785.0,
+              "pcie_tx_kib_per_sec": 1606542.0,
+              "power_watts": 263.867,
+              "process_memory_used_bytes": 4208984064,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 20061224960,
+              "elapsed_seconds": 769.1990399999777,
+              "pcie_rx_kib_per_sec": 13085.0,
+              "pcie_tx_kib_per_sec": 15417968.0,
+              "power_watts": 100.767,
+              "process_memory_used_bytes": 2780823552,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11985092608,
+              "elapsed_seconds": 804.730610426981,
+              "pcie_rx_kib_per_sec": 97460.0,
+              "pcie_tx_kib_per_sec": 388769.0,
+              "power_watts": 242.072,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 66.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 19979436032,
+              "elapsed_seconds": 836.9163228299876,
+              "pcie_rx_kib_per_sec": 17395751.0,
+              "pcie_tx_kib_per_sec": 2010449.0,
+              "power_watts": 107.03,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 21009137664,
+              "elapsed_seconds": 877.049255010992,
+              "pcie_rx_kib_per_sec": 12816992.0,
+              "pcie_tx_kib_per_sec": 1672607.0,
+              "power_watts": 147.36,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11599216640,
+              "elapsed_seconds": 909.3637443149928,
+              "pcie_rx_kib_per_sec": 108642.0,
+              "pcie_tx_kib_per_sec": 383642.0,
+              "power_watts": 240.329,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 66.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 23957733376,
+              "elapsed_seconds": 945.2704683839984,
+              "pcie_rx_kib_per_sec": 3218896.0,
+              "pcie_tx_kib_per_sec": 2193798.0,
+              "power_watts": 233.746,
+              "process_memory_used_bytes": 2684354560,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 21132869632,
+              "elapsed_seconds": 979.2865293340001,
+              "pcie_rx_kib_per_sec": 55078.0,
+              "pcie_tx_kib_per_sec": 885839.0,
+              "power_watts": 98.893,
+              "process_memory_used_bytes": 2587885568,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16223436800,
+              "elapsed_seconds": 1013.9650345660048,
+              "pcie_rx_kib_per_sec": 16882421.0,
+              "pcie_tx_kib_per_sec": 1953466.0,
+              "power_watts": 287.76,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 66.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12725387264,
+              "elapsed_seconds": 1048.8773983519932,
+              "pcie_rx_kib_per_sec": 2509277.0,
+              "pcie_tx_kib_per_sec": 387890.0,
+              "power_watts": 261.285,
+              "process_memory_used_bytes": 2650800128,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11964121088,
+              "elapsed_seconds": 1087.0719415280037,
+              "pcie_rx_kib_per_sec": 89208.0,
+              "pcie_tx_kib_per_sec": 241552.0,
+              "power_watts": 253.05,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 97.0
+            },
+            {
+              "device_memory_used_bytes": 13207732224,
+              "elapsed_seconds": 1119.9830955759971,
+              "pcie_rx_kib_per_sec": 14593408.0,
+              "pcie_tx_kib_per_sec": 1987646.0,
+              "power_watts": 248.904,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15957098496,
+              "elapsed_seconds": 1155.6284927219967,
+              "pcie_rx_kib_per_sec": 1991845.0,
+              "pcie_tx_kib_per_sec": 491113.0,
+              "power_watts": 101.856,
+              "process_memory_used_bytes": 2919235584,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 18108776448,
+              "elapsed_seconds": 1192.528720910981,
+              "pcie_rx_kib_per_sec": 147949.0,
+              "pcie_tx_kib_per_sec": 2850097.0,
+              "power_watts": 258.394,
+              "process_memory_used_bytes": 1864368128,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 27183153152,
+              "elapsed_seconds": 1227.0390182289993,
+              "pcie_rx_kib_per_sec": 19272216.0,
+              "pcie_tx_kib_per_sec": 5797705.0,
+              "power_watts": 196.358,
+              "process_memory_used_bytes": 5507121152,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 61.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 18784059392,
+              "elapsed_seconds": 1267.9734202859981,
+              "pcie_rx_kib_per_sec": 16440917.0,
+              "pcie_tx_kib_per_sec": 2530078.0,
+              "power_watts": 216.588,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 59.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11020402688,
+              "elapsed_seconds": 1306.0975787999923,
+              "pcie_rx_kib_per_sec": 2197.0,
+              "pcie_tx_kib_per_sec": 1171.0,
+              "power_watts": 89.132,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 0.0
+            },
+            {
+              "device_memory_used_bytes": 16095510528,
+              "elapsed_seconds": 1342.5090283959871,
+              "pcie_rx_kib_per_sec": 11079541.0,
+              "pcie_tx_kib_per_sec": 1558300.0,
+              "power_watts": 246.63,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 58.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 21323710464,
+              "elapsed_seconds": 1378.2366687049798,
+              "pcie_rx_kib_per_sec": 123632.0,
+              "pcie_tx_kib_per_sec": 159326.0,
+              "power_watts": 242.575,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15917252608,
+              "elapsed_seconds": 1413.8305161129974,
+              "pcie_rx_kib_per_sec": 37060.0,
+              "pcie_tx_kib_per_sec": 499072.0,
+              "power_watts": 225.828,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14333902848,
+              "elapsed_seconds": 1450.3751012089779,
+              "pcie_rx_kib_per_sec": 1611.0,
+              "pcie_tx_kib_per_sec": 3271.0,
+              "power_watts": 86.913,
+              "process_memory_used_bytes": 2780823552,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 53.0,
+              "utilization_percent": 65.0
+            },
+            {
+              "device_memory_used_bytes": 12628918272,
+              "elapsed_seconds": 1483.6940207459847,
+              "pcie_rx_kib_per_sec": 3085107.0,
+              "pcie_tx_kib_per_sec": 467578.0,
+              "power_watts": 186.117,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 19979436032,
+              "elapsed_seconds": 1523.9399489770003,
+              "pcie_rx_kib_per_sec": 15363720.0,
+              "pcie_tx_kib_per_sec": 2146826.0,
+              "power_watts": 249.892,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11792154624,
+              "elapsed_seconds": 1556.6141426760005,
+              "pcie_rx_kib_per_sec": 115429.0,
+              "pcie_tx_kib_per_sec": 26171.0,
+              "power_watts": 275.278,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 21472608256,
+              "elapsed_seconds": 1589.8235604009824,
+              "pcie_rx_kib_per_sec": 17513427.0,
+              "pcie_tx_kib_per_sec": 2425341.0,
+              "power_watts": 242.598,
+              "process_memory_used_bytes": 2780823552,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16040984576,
+              "elapsed_seconds": 1628.9174902109953,
+              "pcie_rx_kib_per_sec": 11947607.0,
+              "pcie_tx_kib_per_sec": 1571093.0,
+              "power_watts": 234.437,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11406278656,
+              "elapsed_seconds": 1661.6361490559939,
+              "pcie_rx_kib_per_sec": 4833.0,
+              "pcie_tx_kib_per_sec": 4199.0,
+              "power_watts": 87.489,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 53.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16204562432,
+              "elapsed_seconds": 1694.38647257298,
+              "pcie_rx_kib_per_sec": 14558105.0,
+              "pcie_tx_kib_per_sec": 1627685.0,
+              "power_watts": 104.604,
+              "process_memory_used_bytes": 2780823552,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 24723193856,
+              "elapsed_seconds": 1730.8706546379835,
+              "pcie_rx_kib_per_sec": 225830.0,
+              "pcie_tx_kib_per_sec": 285253.0,
+              "power_watts": 89.862,
+              "process_memory_used_bytes": 2128609280,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 52.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11599216640,
+              "elapsed_seconds": 1765.5789114600047,
+              "pcie_rx_kib_per_sec": 95996.0,
+              "pcie_tx_kib_per_sec": 508056.0,
+              "power_watts": 272.715,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12725387264,
+              "elapsed_seconds": 1798.5036224449868,
+              "pcie_rx_kib_per_sec": 3955.0,
+              "pcie_tx_kib_per_sec": 3906.0,
+              "power_watts": 215.364,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 53.0,
+              "utilization_percent": 98.0
+            },
+            {
+              "device_memory_used_bytes": 13539082240,
+              "elapsed_seconds": 1834.333643363003,
+              "pcie_rx_kib_per_sec": 99414.0,
+              "pcie_tx_kib_per_sec": 138818.0,
+              "power_watts": 253.389,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16395403264,
+              "elapsed_seconds": 1868.9958237109822,
+              "pcie_rx_kib_per_sec": 11092431.0,
+              "pcie_tx_kib_per_sec": 1616601.0,
+              "power_watts": 253.573,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15934029824,
+              "elapsed_seconds": 1901.7036014719924,
+              "pcie_rx_kib_per_sec": 5945605.0,
+              "pcie_tx_kib_per_sec": 1936962.0,
+              "power_watts": 240.741,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 18494652416,
+              "elapsed_seconds": 1942.0670014559873,
+              "pcie_rx_kib_per_sec": 14472900.0,
+              "pcie_tx_kib_per_sec": 1898095.0,
+              "power_watts": 243.332,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11695685632,
+              "elapsed_seconds": 1974.82531530899,
+              "pcie_rx_kib_per_sec": 51562.0,
+              "pcie_tx_kib_per_sec": 198974.0,
+              "power_watts": 254.676,
+              "process_memory_used_bytes": 2780823552,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14010941440,
+              "elapsed_seconds": 2008.2566910430032,
+              "pcie_rx_kib_per_sec": 14614599.0,
+              "pcie_tx_kib_per_sec": 1902148.0,
+              "power_watts": 239.814,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11725045760,
+              "elapsed_seconds": 2045.5315516970004,
+              "pcie_rx_kib_per_sec": 752490.0,
+              "pcie_tx_kib_per_sec": 5084277.0,
+              "power_watts": 101.135,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 13960609792,
+              "elapsed_seconds": 2078.967672163999,
+              "pcie_rx_kib_per_sec": 94970.0,
+              "pcie_tx_kib_per_sec": 312353.0,
+              "power_watts": 273.596,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11792154624,
+              "elapsed_seconds": 2112.256958129001,
+              "pcie_rx_kib_per_sec": 71728.0,
+              "pcie_tx_kib_per_sec": 259570.0,
+              "power_watts": 149.44,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14153547776,
+              "elapsed_seconds": 2148.3993486450054,
+              "pcie_rx_kib_per_sec": 2915722.0,
+              "pcie_tx_kib_per_sec": 623046.0,
+              "power_watts": 235.635,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15548153856,
+              "elapsed_seconds": 2183.383739213983,
+              "pcie_rx_kib_per_sec": 13740673.0,
+              "pcie_tx_kib_per_sec": 2075781.0,
+              "power_watts": 259.563,
+              "process_memory_used_bytes": 2587885568,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15858532352,
+              "elapsed_seconds": 2216.3506863009825,
+              "pcie_rx_kib_per_sec": 2880.0,
+              "pcie_tx_kib_per_sec": 739550.0,
+              "power_watts": 92.514,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15084683264,
+              "elapsed_seconds": 2249.7930998509983,
+              "pcie_rx_kib_per_sec": 14298193.0,
+              "pcie_tx_kib_per_sec": 7803515.0,
+              "power_watts": 91.528,
+              "process_memory_used_bytes": 5507121152,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11725045760,
+              "elapsed_seconds": 2287.8113839220023,
+              "pcie_rx_kib_per_sec": 433007.0,
+              "pcie_tx_kib_per_sec": 752880.0,
+              "power_watts": 99.18,
+              "process_memory_used_bytes": 3015704576,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 13207732224,
+              "elapsed_seconds": 2320.2524490880023,
+              "pcie_rx_kib_per_sec": 100585.0,
+              "pcie_tx_kib_per_sec": 1071826.0,
+              "power_watts": 225.937,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15673982976,
+              "elapsed_seconds": 2353.894291495002,
+              "pcie_rx_kib_per_sec": 391992.0,
+              "pcie_tx_kib_per_sec": 805566.0,
+              "power_watts": 269.868,
+              "process_memory_used_bytes": 2703228928,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11406278656,
+              "elapsed_seconds": 2393.102621619997,
+              "pcie_rx_kib_per_sec": 90869.0,
+              "pcie_tx_kib_per_sec": 326904.0,
+              "power_watts": 257.129,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 19979436032,
+              "elapsed_seconds": 2426.3385499519936,
+              "pcie_rx_kib_per_sec": 8963427.0,
+              "pcie_tx_kib_per_sec": 1297265.0,
+              "power_watts": 196.352,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14535229440,
+              "elapsed_seconds": 2462.74960010199,
+              "pcie_rx_kib_per_sec": 88574.0,
+              "pcie_tx_kib_per_sec": 1054443.0,
+              "power_watts": 267.258,
+              "process_memory_used_bytes": 1419771904,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 97.0
+            },
+            {
+              "device_memory_used_bytes": 15644622848,
+              "elapsed_seconds": 2499.393504524982,
+              "pcie_rx_kib_per_sec": 2992382.0,
+              "pcie_tx_kib_per_sec": 598242.0,
+              "power_watts": 215.373,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12081561600,
+              "elapsed_seconds": 2531.896626650996,
+              "pcie_rx_kib_per_sec": 53125.0,
+              "pcie_tx_kib_per_sec": 253955.0,
+              "power_watts": 119.112,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14677835776,
+              "elapsed_seconds": 2565.211308753991,
+              "pcie_rx_kib_per_sec": 2064697.0,
+              "pcie_tx_kib_per_sec": 457617.0,
+              "power_watts": 214.261,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 13014794240,
+              "elapsed_seconds": 2603.5932251299964,
+              "pcie_rx_kib_per_sec": 2197.0,
+              "pcie_tx_kib_per_sec": 3125.0,
+              "power_watts": 94.147,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11116871680,
+              "elapsed_seconds": 2637.4910387669806,
+              "pcie_rx_kib_per_sec": 88623.0,
+              "pcie_tx_kib_per_sec": 334912.0,
+              "power_watts": 246.819,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14568783872,
+              "elapsed_seconds": 2674.1866429789807,
+              "pcie_rx_kib_per_sec": 19230322.0,
+              "pcie_tx_kib_per_sec": 562841.0,
+              "power_watts": 233.871,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14333902848,
+              "elapsed_seconds": 2709.1942312419997,
+              "pcie_rx_kib_per_sec": 1172900.0,
+              "pcie_tx_kib_per_sec": 260546.0,
+              "power_watts": 210.406,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 17412521984,
+              "elapsed_seconds": 2741.832105826994,
+              "pcie_rx_kib_per_sec": 14221777.0,
+              "pcie_tx_kib_per_sec": 1718994.0,
+              "power_watts": 266.853,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12232556544,
+              "elapsed_seconds": 2777.9423512739886,
+              "pcie_rx_kib_per_sec": 370068.0,
+              "pcie_tx_kib_per_sec": 787597.0,
+              "power_watts": 261.994,
+              "process_memory_used_bytes": 1298137088,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 19505479680,
+              "elapsed_seconds": 2813.675919800997,
+              "pcie_rx_kib_per_sec": 20432031.0,
+              "pcie_tx_kib_per_sec": 3983886.0,
+              "power_watts": 225.763,
+              "process_memory_used_bytes": 5507121152,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 22873505792,
+              "elapsed_seconds": 2845.8633708790003,
+              "pcie_rx_kib_per_sec": 12299414.0,
+              "pcie_tx_kib_per_sec": 2616748.0,
+              "power_watts": 124.334,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11599216640,
+              "elapsed_seconds": 2877.93780997899,
+              "pcie_rx_kib_per_sec": 3603173.0,
+              "pcie_tx_kib_per_sec": 403710.0,
+              "power_watts": 231.604,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12918325248,
+              "elapsed_seconds": 2913.831514685997,
+              "pcie_rx_kib_per_sec": 6298.0,
+              "pcie_tx_kib_per_sec": 31982.0,
+              "power_watts": 190.745,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11725045760,
+              "elapsed_seconds": 2950.0019882110064,
+              "pcie_rx_kib_per_sec": 2845214.0,
+              "pcie_tx_kib_per_sec": 1145849.0,
+              "power_watts": 250.597,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1395.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15837560832,
+              "elapsed_seconds": 2988.2029148479924,
+              "pcie_rx_kib_per_sec": 13889062.0,
+              "pcie_tx_kib_per_sec": 2005761.0,
+              "power_watts": 258.662,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15837560832,
+              "elapsed_seconds": 3024.252690228983,
+              "pcie_rx_kib_per_sec": 13675585.0,
+              "pcie_tx_kib_per_sec": 1717871.0,
+              "power_watts": 269.66,
+              "process_memory_used_bytes": 5603590144,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15837560832,
+              "elapsed_seconds": 3057.060978558002,
+              "pcie_rx_kib_per_sec": 14616601.0,
+              "pcie_tx_kib_per_sec": 2143457.0,
+              "power_watts": 238.699,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 21556494336,
+              "elapsed_seconds": 3091.714646770997,
+              "pcie_rx_kib_per_sec": 168978906.0,
+              "pcie_tx_kib_per_sec": 2637646.0,
+              "power_watts": 92.527,
+              "process_memory_used_bytes": 2780823552,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11792154624,
+              "elapsed_seconds": 3128.3447669209854,
+              "pcie_rx_kib_per_sec": 5175.0,
+              "pcie_tx_kib_per_sec": 254541.0,
+              "power_watts": 246.246,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16223436800,
+              "elapsed_seconds": 3161.3265173859836,
+              "pcie_rx_kib_per_sec": 2804003.0,
+              "pcie_tx_kib_per_sec": 415966.0,
+              "power_watts": 233.666,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15038545920,
+              "elapsed_seconds": 3197.0819758219877,
+              "pcie_rx_kib_per_sec": 13918505.0,
+              "pcie_tx_kib_per_sec": 1511669.0,
+              "power_watts": 99.777,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11502747648,
+              "elapsed_seconds": 3232.9410247780033,
+              "pcie_rx_kib_per_sec": 114599.0,
+              "pcie_tx_kib_per_sec": 325585.0,
+              "power_watts": 243.769,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11502747648,
+              "elapsed_seconds": 3265.7025112840056,
+              "pcie_rx_kib_per_sec": 4716210.0,
+              "pcie_tx_kib_per_sec": 124658.0,
+              "power_watts": 224.2,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14331805696,
+              "elapsed_seconds": 3298.981650904985,
+              "pcie_rx_kib_per_sec": 107910.0,
+              "pcie_tx_kib_per_sec": 5077197.0,
+              "power_watts": 259.823,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15625748480,
+              "elapsed_seconds": 3338.126576851995,
+              "pcie_rx_kib_per_sec": 2895117.0,
+              "pcie_tx_kib_per_sec": 795361.0,
+              "power_watts": 233.781,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16126967808,
+              "elapsed_seconds": 3370.6365346660023,
+              "pcie_rx_kib_per_sec": 14227929.0,
+              "pcie_tx_kib_per_sec": 1894140.0,
+              "power_watts": 287.956,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15770451968,
+              "elapsed_seconds": 3403.6517240079993,
+              "pcie_rx_kib_per_sec": 3566064.0,
+              "pcie_tx_kib_per_sec": 1041650.0,
+              "power_watts": 92.87,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 53.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11997675520,
+              "elapsed_seconds": 3440.580990889983,
+              "pcie_rx_kib_per_sec": 1207812.0,
+              "pcie_tx_kib_per_sec": 1454931.0,
+              "power_watts": 228.914,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 20228997120,
+              "elapsed_seconds": 3474.900338667998,
+              "pcie_rx_kib_per_sec": 17349462.0,
+              "pcie_tx_kib_per_sec": 2491015.0,
+              "power_watts": 267.451,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11725045760,
+              "elapsed_seconds": 3507.151879121986,
+              "pcie_rx_kib_per_sec": 2833056.0,
+              "pcie_tx_kib_per_sec": 702392.0,
+              "power_watts": 244.363,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 18026987520,
+              "elapsed_seconds": 3543.382029030996,
+              "pcie_rx_kib_per_sec": 737402.0,
+              "pcie_tx_kib_per_sec": 1500390.0,
+              "power_watts": 239.216,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11299323904,
+              "elapsed_seconds": 3579.801393194997,
+              "pcie_rx_kib_per_sec": 94482.0,
+              "pcie_tx_kib_per_sec": 171435.0,
+              "power_watts": 272.82,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11502747648,
+              "elapsed_seconds": 3613.7125235779968,
+              "pcie_rx_kib_per_sec": 107666.0,
+              "pcie_tx_kib_per_sec": 504394.0,
+              "power_watts": 242.346,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 22831562752,
+              "elapsed_seconds": 3651.0004939479986,
+              "pcie_rx_kib_per_sec": 3165136.0,
+              "pcie_tx_kib_per_sec": 6460205.0,
+              "power_watts": 225.504,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11599216640,
+              "elapsed_seconds": 3684.593788950995,
+              "pcie_rx_kib_per_sec": 68896.0,
+              "pcie_tx_kib_per_sec": 258398.0,
+              "power_watts": 246.879,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12081561600,
+              "elapsed_seconds": 3717.5757823689783,
+              "pcie_rx_kib_per_sec": 6616503.0,
+              "pcie_tx_kib_per_sec": 264111.0,
+              "power_watts": 277.356,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11322392576,
+              "elapsed_seconds": 3752.8265953859955,
+              "pcie_rx_kib_per_sec": 85839.0,
+              "pcie_tx_kib_per_sec": 66748.0,
+              "power_watts": 232.799,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12815564800,
+              "elapsed_seconds": 3789.163183982979,
+              "pcie_rx_kib_per_sec": 98339.0,
+              "pcie_tx_kib_per_sec": 890722.0,
+              "power_watts": 245.726,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12027035648,
+              "elapsed_seconds": 3823.1690846160054,
+              "pcie_rx_kib_per_sec": 5343212.0,
+              "pcie_tx_kib_per_sec": 488281.0,
+              "power_watts": 212.51,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14816247808,
+              "elapsed_seconds": 3858.352747545985,
+              "pcie_rx_kib_per_sec": 616650.0,
+              "pcie_tx_kib_per_sec": 20330957.0,
+              "power_watts": 240.062,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11599216640,
+              "elapsed_seconds": 3893.301840270986,
+              "pcie_rx_kib_per_sec": 89355.0,
+              "pcie_tx_kib_per_sec": 488623.0,
+              "power_watts": 282.209,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16294739968,
+              "elapsed_seconds": 3925.9094220569823,
+              "pcie_rx_kib_per_sec": 13371533.0,
+              "pcie_tx_kib_per_sec": 2108398.0,
+              "power_watts": 230.164,
+              "process_memory_used_bytes": 5507121152,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 21738946560,
+              "elapsed_seconds": 3961.1231230279955,
+              "pcie_rx_kib_per_sec": 12283935.0,
+              "pcie_tx_kib_per_sec": 3497900.0,
+              "power_watts": 193.684,
+              "process_memory_used_bytes": 5603590144,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15426519040,
+              "elapsed_seconds": 3997.4826001939946,
+              "pcie_rx_kib_per_sec": 21298535.0,
+              "pcie_tx_kib_per_sec": 2046679.0,
+              "power_watts": 241.487,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16970022912,
+              "elapsed_seconds": 4030.27461722499,
+              "pcie_rx_kib_per_sec": 67968.0,
+              "pcie_tx_kib_per_sec": 1330078.0,
+              "power_watts": 232.141,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 13612482560,
+              "elapsed_seconds": 4062.940949280979,
+              "pcie_rx_kib_per_sec": 169287.0,
+              "pcie_tx_kib_per_sec": 274267.0,
+              "power_watts": 243.438,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14403108864,
+              "elapsed_seconds": 4098.76583997198,
+              "pcie_rx_kib_per_sec": 52701855.0,
+              "pcie_tx_kib_per_sec": 2100732.0,
+              "power_watts": 266.448,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 17643208704,
+              "elapsed_seconds": 4134.233240378002,
+              "pcie_rx_kib_per_sec": 15114355.0,
+              "pcie_tx_kib_per_sec": 2022851.0,
+              "power_watts": 252.45,
+              "process_memory_used_bytes": 5603590144,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 13406961664,
+              "elapsed_seconds": 4167.151166109979,
+              "pcie_rx_kib_per_sec": 14412792.0,
+              "pcie_tx_kib_per_sec": 1921289.0,
+              "power_watts": 273.974,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15934029824,
+              "elapsed_seconds": 4201.918221961998,
+              "pcie_rx_kib_per_sec": 110986.0,
+              "pcie_tx_kib_per_sec": 8480078.0,
+              "power_watts": 158.575,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14623309824,
+              "elapsed_seconds": 4237.954250615003,
+              "pcie_rx_kib_per_sec": 4772998.0,
+              "pcie_tx_kib_per_sec": 342675.0,
+              "power_watts": 279.626,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16126967808,
+              "elapsed_seconds": 4270.876048670994,
+              "pcie_rx_kib_per_sec": 2437597.0,
+              "pcie_tx_kib_per_sec": 618750.0,
+              "power_watts": 253.098,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14388428800,
+              "elapsed_seconds": 4303.828088469978,
+              "pcie_rx_kib_per_sec": 52685.0,
+              "pcie_tx_kib_per_sec": 3209570.0,
+              "power_watts": 236.975,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12454854656,
+              "elapsed_seconds": 4342.158909060992,
+              "pcie_rx_kib_per_sec": 356054.0,
+              "pcie_tx_kib_per_sec": 699267.0,
+              "power_watts": 308.847,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1395.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 13966901248,
+              "elapsed_seconds": 4375.302351288992,
+              "pcie_rx_kib_per_sec": 91015.0,
+              "pcie_tx_kib_per_sec": 360058.0,
+              "power_watts": 247.709,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16607215616,
+              "elapsed_seconds": 4408.399761070992,
+              "pcie_rx_kib_per_sec": 4993310.0,
+              "pcie_tx_kib_per_sec": 1129101.0,
+              "power_watts": 193.589,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 32308592640,
+              "elapsed_seconds": 4447.296104951005,
+              "pcie_rx_kib_per_sec": 18255664.0,
+              "pcie_tx_kib_per_sec": 2766015.0,
+              "power_watts": 193.419,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 93.0
+            },
+            {
+              "device_memory_used_bytes": 21388722176,
+              "elapsed_seconds": 4479.776380409981,
+              "pcie_rx_kib_per_sec": 8596777.0,
+              "pcie_tx_kib_per_sec": 1698193.0,
+              "power_watts": 254.64,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 19593560064,
+              "elapsed_seconds": 4512.918877477001,
+              "pcie_rx_kib_per_sec": 11265283.0,
+              "pcie_tx_kib_per_sec": 1328369.0,
+              "power_watts": 94.534,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12178030592,
+              "elapsed_seconds": 4548.737128295994,
+              "pcie_rx_kib_per_sec": 91601.0,
+              "pcie_tx_kib_per_sec": 263281.0,
+              "power_watts": 250.841,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15418130432,
+              "elapsed_seconds": 4583.932626883005,
+              "pcie_rx_kib_per_sec": 11190429.0,
+              "pcie_tx_kib_per_sec": 771386.0,
+              "power_watts": 268.408,
+              "process_memory_used_bytes": 2822766592,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12654084096,
+              "elapsed_seconds": 4616.68527909898,
+              "pcie_rx_kib_per_sec": 1500292.0,
+              "pcie_tx_kib_per_sec": 329882.0,
+              "power_watts": 288.576,
+              "process_memory_used_bytes": 1558183936,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16842096640,
+              "elapsed_seconds": 4652.636421383999,
+              "pcie_rx_kib_per_sec": 50830.0,
+              "pcie_tx_kib_per_sec": 705224.0,
+              "power_watts": 92.369,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14237433856,
+              "elapsed_seconds": 4687.687666360987,
+              "pcie_rx_kib_per_sec": 12686132.0,
+              "pcie_tx_kib_per_sec": 323437.0,
+              "power_watts": 270.207,
+              "process_memory_used_bytes": 4072669184,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11695685632,
+              "elapsed_seconds": 4720.477177488006,
+              "pcie_rx_kib_per_sec": 95214.0,
+              "pcie_tx_kib_per_sec": 324316.0,
+              "power_watts": 259.973,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11985092608,
+              "elapsed_seconds": 4752.816642266,
+              "pcie_rx_kib_per_sec": 95361.0,
+              "pcie_tx_kib_per_sec": 386181.0,
+              "power_watts": 265.907,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 17628528640,
+              "elapsed_seconds": 4790.482324333978,
+              "pcie_rx_kib_per_sec": 85791.0,
+              "pcie_tx_kib_per_sec": 3331640.0,
+              "power_watts": 270.935,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11502747648,
+              "elapsed_seconds": 4824.795425004006,
+              "pcie_rx_kib_per_sec": 87207.0,
+              "pcie_tx_kib_per_sec": 512451.0,
+              "power_watts": 256.592,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11695685632,
+              "elapsed_seconds": 4857.306718284992,
+              "pcie_rx_kib_per_sec": 73339.0,
+              "pcie_tx_kib_per_sec": 210205.0,
+              "power_watts": 275.51,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12178030592,
+              "elapsed_seconds": 4892.8218934559845,
+              "pcie_rx_kib_per_sec": 70996.0,
+              "pcie_tx_kib_per_sec": 265234.0,
+              "power_watts": 254.43,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11888623616,
+              "elapsed_seconds": 4928.0213787039975,
+              "pcie_rx_kib_per_sec": 82958.0,
+              "pcie_tx_kib_per_sec": 446923.0,
+              "power_watts": 293.4,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16160522240,
+              "elapsed_seconds": 4960.322032330005,
+              "pcie_rx_kib_per_sec": 128808.0,
+              "pcie_tx_kib_per_sec": 1271484.0,
+              "power_watts": 249.502,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 18578538496,
+              "elapsed_seconds": 4995.872012524982,
+              "pcie_rx_kib_per_sec": 88867.0,
+              "pcie_tx_kib_per_sec": 1103417.0,
+              "power_watts": 236.915,
+              "process_memory_used_bytes": 1635778560,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 24054202368,
+              "elapsed_seconds": 5033.079256964993,
+              "pcie_rx_kib_per_sec": 21359228.0,
+              "pcie_tx_kib_per_sec": 3865234.0,
+              "power_watts": 88.245,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 53.0,
+              "utilization_percent": 40.0
+            },
+            {
+              "device_memory_used_bytes": 19979436032,
+              "elapsed_seconds": 5066.85166477898,
+              "pcie_rx_kib_per_sec": 81201.0,
+              "pcie_tx_kib_per_sec": 525537.0,
+              "power_watts": 257.68,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 26539327488,
+              "elapsed_seconds": 5100.758222581993,
+              "pcie_rx_kib_per_sec": 24462.0,
+              "pcie_tx_kib_per_sec": 10400.0,
+              "power_watts": 103.701,
+              "process_memory_used_bytes": 4250927104,
+              "sm_clock_mhz": 1395.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 19560005632,
+              "elapsed_seconds": 5137.505614120979,
+              "pcie_rx_kib_per_sec": 86523.0,
+              "pcie_tx_kib_per_sec": 695117.0,
+              "power_watts": 294.326,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 20260454400,
+              "elapsed_seconds": 5170.290986142005,
+              "pcie_rx_kib_per_sec": 18694335.0,
+              "pcie_tx_kib_per_sec": 2538427.0,
+              "power_watts": 244.582,
+              "process_memory_used_bytes": 1491075072,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15934029824,
+              "elapsed_seconds": 5203.1105443910055,
+              "pcie_rx_kib_per_sec": 12676171.0,
+              "pcie_tx_kib_per_sec": 1793652.0,
+              "power_watts": 257.745,
+              "process_memory_used_bytes": 5603590144,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11888623616,
+              "elapsed_seconds": 5239.64184894698,
+              "pcie_rx_kib_per_sec": 2001.0,
+              "pcie_tx_kib_per_sec": 3320.0,
+              "power_watts": 234.632,
+              "process_memory_used_bytes": 2587885568,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 98.0
+            },
+            {
+              "device_memory_used_bytes": 24031133696,
+              "elapsed_seconds": 5273.698293890979,
+              "pcie_rx_kib_per_sec": 15014160.0,
+              "pcie_tx_kib_per_sec": 2312255.0,
+              "power_watts": 95.823,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 17634820096,
+              "elapsed_seconds": 5306.209175989003,
+              "pcie_rx_kib_per_sec": 17819189.0,
+              "pcie_tx_kib_per_sec": 1945654.0,
+              "power_watts": 219.568,
+              "process_memory_used_bytes": 5603590144,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 29932519424,
+              "elapsed_seconds": 5338.693379754986,
+              "pcie_rx_kib_per_sec": 9140332.0,
+              "pcie_tx_kib_per_sec": 1847070.0,
+              "power_watts": 109.321,
+              "process_memory_used_bytes": 2030043136,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16116482048,
+              "elapsed_seconds": 5375.159400511999,
+              "pcie_rx_kib_per_sec": 5788037.0,
+              "pcie_tx_kib_per_sec": 2030859.0,
+              "power_watts": 238.992,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14610726912,
+              "elapsed_seconds": 5409.421613643004,
+              "pcie_rx_kib_per_sec": 18784033.0,
+              "pcie_tx_kib_per_sec": 2491210.0,
+              "power_watts": 227.726,
+              "process_memory_used_bytes": 5603590144,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11917983744,
+              "elapsed_seconds": 5442.877370920003,
+              "pcie_rx_kib_per_sec": 134179.0,
+              "pcie_tx_kib_per_sec": 834716.0,
+              "power_watts": 234.683,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 57.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 18775670784,
+              "elapsed_seconds": 5480.096859702986,
+              "pcie_rx_kib_per_sec": 1720214.0,
+              "pcie_tx_kib_per_sec": 1881298.0,
+              "power_watts": 92.625,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11628576768,
+              "elapsed_seconds": 5514.59475450599,
+              "pcie_rx_kib_per_sec": 82714.0,
+              "pcie_tx_kib_per_sec": 1194384.0,
+              "power_watts": 277.572,
+              "process_memory_used_bytes": 1551892480,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 57.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 24383455232,
+              "elapsed_seconds": 5546.978676389001,
+              "pcie_rx_kib_per_sec": 20798974.0,
+              "pcie_tx_kib_per_sec": 4476171.0,
+              "power_watts": 95.071,
+              "process_memory_used_bytes": 5410652160,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16217145344,
+              "elapsed_seconds": 5581.784695281996,
+              "pcie_rx_kib_per_sec": 3227587.0,
+              "pcie_tx_kib_per_sec": 1158007.0,
+              "power_watts": 126.123,
+              "process_memory_used_bytes": 1447034880,
+              "sm_clock_mhz": 1395.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11599216640,
+              "elapsed_seconds": 5617.599627116986,
+              "pcie_rx_kib_per_sec": 102246.0,
+              "pcie_tx_kib_per_sec": 428125.0,
+              "power_watts": 286.858,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1395.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11792154624,
+              "elapsed_seconds": 5650.558008503984,
+              "pcie_rx_kib_per_sec": 1757.0,
+              "pcie_tx_kib_per_sec": 1660.0,
+              "power_watts": 92.819,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 54.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 13111263232,
+              "elapsed_seconds": 5683.245404066984,
+              "pcie_rx_kib_per_sec": 100488.0,
+              "pcie_tx_kib_per_sec": 327587.0,
+              "power_watts": 249.042,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11888623616,
+              "elapsed_seconds": 5718.055170923006,
+              "pcie_rx_kib_per_sec": 108789.0,
+              "pcie_tx_kib_per_sec": 25341.0,
+              "power_watts": 246.66,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11848777728,
+              "elapsed_seconds": 5753.192605547985,
+              "pcie_rx_kib_per_sec": 98681.0,
+              "pcie_tx_kib_per_sec": 2147705.0,
+              "power_watts": 252.496,
+              "process_memory_used_bytes": 2587885568,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12821856256,
+              "elapsed_seconds": 5785.805609913979,
+              "pcie_rx_kib_per_sec": 11329638.0,
+              "pcie_tx_kib_per_sec": 758447.0,
+              "power_watts": 228.762,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 21936078848,
+              "elapsed_seconds": 5817.826667636982,
+              "pcie_rx_kib_per_sec": 10231005.0,
+              "pcie_tx_kib_per_sec": 2406542.0,
+              "power_watts": 114.508,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 57.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 18553372672,
+              "elapsed_seconds": 5850.214651171002,
+              "pcie_rx_kib_per_sec": 74462.0,
+              "pcie_tx_kib_per_sec": 9937353.0,
+              "power_watts": 227.402,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 61.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 18186371072,
+              "elapsed_seconds": 5884.172334523988,
+              "pcie_rx_kib_per_sec": 6453466.0,
+              "pcie_tx_kib_per_sec": 25226025.0,
+              "power_watts": 93.755,
+              "process_memory_used_bytes": 5507121152,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 21.0
+            },
+            {
+              "device_memory_used_bytes": 11309809664,
+              "elapsed_seconds": 5918.620095730992,
+              "pcie_rx_kib_per_sec": 1074.0,
+              "pcie_tx_kib_per_sec": 2001.0,
+              "power_watts": 122.402,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12628918272,
+              "elapsed_seconds": 5951.594396797998,
+              "pcie_rx_kib_per_sec": 7774121.0,
+              "pcie_tx_kib_per_sec": 259814.0,
+              "power_watts": 255.115,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12219973632,
+              "elapsed_seconds": 5984.053102089994,
+              "pcie_rx_kib_per_sec": 96630.0,
+              "pcie_tx_kib_per_sec": 4647656.0,
+              "power_watts": 253.911,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 66.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16233922560,
+              "elapsed_seconds": 6020.129582887981,
+              "pcie_rx_kib_per_sec": 14566162.0,
+              "pcie_tx_kib_per_sec": 4249853.0,
+              "power_watts": 101.41,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 20082196480,
+              "elapsed_seconds": 6053.945666084997,
+              "pcie_rx_kib_per_sec": 7591601.0,
+              "pcie_tx_kib_per_sec": 1890673.0,
+              "power_watts": 188.866,
+              "process_memory_used_bytes": 2684354560,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11213340672,
+              "elapsed_seconds": 6086.486396305991,
+              "pcie_rx_kib_per_sec": 3369.0,
+              "pcie_tx_kib_per_sec": 3271.0,
+              "power_watts": 204.531,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 77.0
+            },
+            {
+              "device_memory_used_bytes": 20069613568,
+              "elapsed_seconds": 6120.523842505005,
+              "pcie_rx_kib_per_sec": 13866064.0,
+              "pcie_tx_kib_per_sec": 716992.0,
+              "power_watts": 99.268,
+              "process_memory_used_bytes": 1635778560,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12050104320,
+              "elapsed_seconds": 6156.25869209299,
+              "pcie_rx_kib_per_sec": 4785.0,
+              "pcie_tx_kib_per_sec": 795117.0,
+              "power_watts": 256.656,
+              "process_memory_used_bytes": 2684354560,
+              "sm_clock_mhz": 1395.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12584878080,
+              "elapsed_seconds": 6190.176071703987,
+              "pcie_rx_kib_per_sec": 3328662.0,
+              "pcie_tx_kib_per_sec": 1236914.0,
+              "power_watts": 237.477,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15770451968,
+              "elapsed_seconds": 6223.019186991005,
+              "pcie_rx_kib_per_sec": 13794042.0,
+              "pcie_tx_kib_per_sec": 2041455.0,
+              "power_watts": 217.544,
+              "process_memory_used_bytes": 2709520384,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 23058055168,
+              "elapsed_seconds": 6257.815270941996,
+              "pcie_rx_kib_per_sec": 12772412.0,
+              "pcie_tx_kib_per_sec": 2178466.0,
+              "power_watts": 104.671,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 42.0
+            },
+            {
+              "device_memory_used_bytes": 12333219840,
+              "elapsed_seconds": 6292.897768784984,
+              "pcie_rx_kib_per_sec": 381787.0,
+              "pcie_tx_kib_per_sec": 467724.0,
+              "power_watts": 277.437,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11888623616,
+              "elapsed_seconds": 6325.374516558979,
+              "pcie_rx_kib_per_sec": 94677.0,
+              "pcie_tx_kib_per_sec": 382714.0,
+              "power_watts": 303.716,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1395.0,
+              "temperature_c": 66.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11695685632,
+              "elapsed_seconds": 6357.867855474993,
+              "pcie_rx_kib_per_sec": 105517.0,
+              "pcie_tx_kib_per_sec": 504101.0,
+              "power_watts": 269.948,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 20461780992,
+              "elapsed_seconds": 6392.828374721983,
+              "pcie_rx_kib_per_sec": 18671875.0,
+              "pcie_tx_kib_per_sec": 2228564.0,
+              "power_watts": 96.433,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 90.0
+            },
+            {
+              "device_memory_used_bytes": 16250699776,
+              "elapsed_seconds": 6427.800177472993,
+              "pcie_rx_kib_per_sec": 1409179.0,
+              "pcie_tx_kib_per_sec": 351318.0,
+              "power_watts": 259.452,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 23106289664,
+              "elapsed_seconds": 6459.548167892994,
+              "pcie_rx_kib_per_sec": 14242919.0,
+              "pcie_tx_kib_per_sec": 1971240.0,
+              "power_watts": 169.5,
+              "process_memory_used_bytes": 5507121152,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11605508096,
+              "elapsed_seconds": 6492.341482702992,
+              "pcie_rx_kib_per_sec": 117578.0,
+              "pcie_tx_kib_per_sec": 175390.0,
+              "power_watts": 227.934,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 23980802048,
+              "elapsed_seconds": 6527.653197407984,
+              "pcie_rx_kib_per_sec": 8642.0,
+              "pcie_tx_kib_per_sec": 11261376.0,
+              "power_watts": 96.422,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 17242652672,
+              "elapsed_seconds": 6562.730346278986,
+              "pcie_rx_kib_per_sec": 16859570.0,
+              "pcie_tx_kib_per_sec": 1533105.0,
+              "power_watts": 109.209,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11599216640,
+              "elapsed_seconds": 6595.9063197329815,
+              "pcie_rx_kib_per_sec": 2636.0,
+              "pcie_tx_kib_per_sec": 1953.0,
+              "power_watts": 264.363,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 99.0
+            },
+            {
+              "device_memory_used_bytes": 11945246720,
+              "elapsed_seconds": 6628.2085455289925,
+              "pcie_rx_kib_per_sec": 88281.0,
+              "pcie_tx_kib_per_sec": 2693945.0,
+              "power_watts": 273.091,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14768013312,
+              "elapsed_seconds": 6665.6326481050055,
+              "pcie_rx_kib_per_sec": 14742626.0,
+              "pcie_tx_kib_per_sec": 7287353.0,
+              "power_watts": 100.547,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 98.0
+            },
+            {
+              "device_memory_used_bytes": 18771476480,
+              "elapsed_seconds": 6699.029760598001,
+              "pcie_rx_kib_per_sec": 10856982.0,
+              "pcie_tx_kib_per_sec": 1759228.0,
+              "power_watts": 163.833,
+              "process_memory_used_bytes": 5507121152,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15871115264,
+              "elapsed_seconds": 6731.692529122985,
+              "pcie_rx_kib_per_sec": 13639941.0,
+              "pcie_tx_kib_per_sec": 2031542.0,
+              "power_watts": 277.129,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 20411449344,
+              "elapsed_seconds": 6765.449459439988,
+              "pcie_rx_kib_per_sec": 1473876.0,
+              "pcie_tx_kib_per_sec": 8394433.0,
+              "power_watts": 251.703,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15644622848,
+              "elapsed_seconds": 6801.635037632979,
+              "pcie_rx_kib_per_sec": 101074.0,
+              "pcie_tx_kib_per_sec": 214794.0,
+              "power_watts": 98.869,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12907839488,
+              "elapsed_seconds": 6835.283767811983,
+              "pcie_rx_kib_per_sec": 119824.0,
+              "pcie_tx_kib_per_sec": 332861.0,
+              "power_watts": 230.14,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 21202075648,
+              "elapsed_seconds": 6867.98978319898,
+              "pcie_rx_kib_per_sec": 19368847.0,
+              "pcie_tx_kib_per_sec": 2596728.0,
+              "power_watts": 236.882,
+              "process_memory_used_bytes": 5507121152,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 17485922304,
+              "elapsed_seconds": 6903.81900335598,
+              "pcie_rx_kib_per_sec": 2001.0,
+              "pcie_tx_kib_per_sec": 5852001.0,
+              "power_watts": 95.24,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 60.0,
+              "utilization_percent": 73.0
+            },
+            {
+              "device_memory_used_bytes": 14524743680,
+              "elapsed_seconds": 6938.678561574983,
+              "pcie_rx_kib_per_sec": 95263.0,
+              "pcie_tx_kib_per_sec": 328662.0,
+              "power_watts": 272.645,
+              "process_memory_used_bytes": 1543503872,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12016549888,
+              "elapsed_seconds": 6971.350283938984,
+              "pcie_rx_kib_per_sec": 112744.0,
+              "pcie_tx_kib_per_sec": 906005.0,
+              "power_watts": 284.376,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 16030498816,
+              "elapsed_seconds": 7006.176518213993,
+              "pcie_rx_kib_per_sec": 2089453.0,
+              "pcie_tx_kib_per_sec": 1842041.0,
+              "power_watts": 229.277,
+              "process_memory_used_bytes": 1516240896,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 18937151488,
+              "elapsed_seconds": 7040.884236883983,
+              "pcie_rx_kib_per_sec": 458837.0,
+              "pcie_tx_kib_per_sec": 477734.0,
+              "power_watts": 220.78,
+              "process_memory_used_bytes": 1558183936,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 13111263232,
+              "elapsed_seconds": 7075.008381673979,
+              "pcie_rx_kib_per_sec": 81445.0,
+              "pcie_tx_kib_per_sec": 260546.0,
+              "power_watts": 255.161,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12918325248,
+              "elapsed_seconds": 7107.638949782995,
+              "pcie_rx_kib_per_sec": 7529589.0,
+              "pcie_tx_kib_per_sec": 202636.0,
+              "power_watts": 272.112,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11953635328,
+              "elapsed_seconds": 7143.119022867992,
+              "pcie_rx_kib_per_sec": 86474.0,
+              "pcie_tx_kib_per_sec": 702197.0,
+              "power_watts": 291.88,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11888623616,
+              "elapsed_seconds": 7179.155739195994,
+              "pcie_rx_kib_per_sec": 356298.0,
+              "pcie_tx_kib_per_sec": 202685.0,
+              "power_watts": 226.687,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15644622848,
+              "elapsed_seconds": 7211.696134520986,
+              "pcie_rx_kib_per_sec": 11438427.0,
+              "pcie_tx_kib_per_sec": 1750781.0,
+              "power_watts": 274.172,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12735873024,
+              "elapsed_seconds": 7247.740038343996,
+              "pcie_rx_kib_per_sec": 4313134.0,
+              "pcie_tx_kib_per_sec": 2541552.0,
+              "power_watts": 256.731,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15837560832,
+              "elapsed_seconds": 7282.581628574,
+              "pcie_rx_kib_per_sec": 13580273.0,
+              "pcie_tx_kib_per_sec": 1638769.0,
+              "power_watts": 98.176,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 61.0,
+              "utilization_percent": 31.0
+            },
+            {
+              "device_memory_used_bytes": 23389405184,
+              "elapsed_seconds": 7315.797914444003,
+              "pcie_rx_kib_per_sec": 18440869.0,
+              "pcie_tx_kib_per_sec": 2611523.0,
+              "power_watts": 219.328,
+              "process_memory_used_bytes": 5603590144,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12071075840,
+              "elapsed_seconds": 7348.4346607479965,
+              "pcie_rx_kib_per_sec": 335498.0,
+              "pcie_tx_kib_per_sec": 265332.0,
+              "power_watts": 95.63,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 61.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11366432768,
+              "elapsed_seconds": 7384.008701994986,
+              "pcie_rx_kib_per_sec": 585.0,
+              "pcie_tx_kib_per_sec": 12402.0,
+              "power_watts": 95.032,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 63.0
+            },
+            {
+              "device_memory_used_bytes": 13255966720,
+              "elapsed_seconds": 7419.368949336,
+              "pcie_rx_kib_per_sec": 1838964.0,
+              "pcie_tx_kib_per_sec": 2158691.0,
+              "power_watts": 205.419,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 13369212928,
+              "elapsed_seconds": 7452.0583728209895,
+              "pcie_rx_kib_per_sec": 70068.0,
+              "pcie_tx_kib_per_sec": 360009.0,
+              "power_watts": 256.982,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 17066491904,
+              "elapsed_seconds": 7488.126302014978,
+              "pcie_rx_kib_per_sec": 16885400.0,
+              "pcie_tx_kib_per_sec": 2061279.0,
+              "power_watts": 274.584,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 97.0
+            },
+            {
+              "device_memory_used_bytes": 12178030592,
+              "elapsed_seconds": 7523.258089624986,
+              "pcie_rx_kib_per_sec": 106152.0,
+              "pcie_tx_kib_per_sec": 26367.0,
+              "power_watts": 271.055,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15741091840,
+              "elapsed_seconds": 7556.130246161978,
+              "pcie_rx_kib_per_sec": 94677.0,
+              "pcie_tx_kib_per_sec": 298095.0,
+              "power_watts": 245.099,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11966218240,
+              "elapsed_seconds": 7588.79394086299,
+              "pcie_rx_kib_per_sec": 75830.0,
+              "pcie_tx_kib_per_sec": 540673.0,
+              "power_watts": 240.485,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 23938859008,
+              "elapsed_seconds": 7624.989220699004,
+              "pcie_rx_kib_per_sec": 19685253.0,
+              "pcie_tx_kib_per_sec": 2844726.0,
+              "power_watts": 187.107,
+              "process_memory_used_bytes": 4016046080,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 67.0
+            },
+            {
+              "device_memory_used_bytes": 20235288576,
+              "elapsed_seconds": 7660.0723958789895,
+              "pcie_rx_kib_per_sec": 79052.0,
+              "pcie_tx_kib_per_sec": 3283203.0,
+              "power_watts": 170.788,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 20075905024,
+              "elapsed_seconds": 7692.730202691979,
+              "pcie_rx_kib_per_sec": 15915283.0,
+              "pcie_tx_kib_per_sec": 1793652.0,
+              "power_watts": 264.096,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15191638016,
+              "elapsed_seconds": 7728.410889172985,
+              "pcie_rx_kib_per_sec": 60449.0,
+              "pcie_tx_kib_per_sec": 356494.0,
+              "power_watts": 232.038,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12851216384,
+              "elapsed_seconds": 7763.792158266995,
+              "pcie_rx_kib_per_sec": 3173.0,
+              "pcie_tx_kib_per_sec": 1029541.0,
+              "power_watts": 99.878,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12226265088,
+              "elapsed_seconds": 7796.240733839979,
+              "pcie_rx_kib_per_sec": 82763.0,
+              "pcie_tx_kib_per_sec": 359228.0,
+              "power_watts": 269.138,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1395.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 17016160256,
+              "elapsed_seconds": 7828.981559106003,
+              "pcie_rx_kib_per_sec": 17142382.0,
+              "pcie_tx_kib_per_sec": 2801855.0,
+              "power_watts": 100.84,
+              "process_memory_used_bytes": 5410652160,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12209487872,
+              "elapsed_seconds": 7866.16615453898,
+              "pcie_rx_kib_per_sec": 620361.0,
+              "pcie_tx_kib_per_sec": 861279.0,
+              "power_watts": 99.198,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11662131200,
+              "elapsed_seconds": 7899.843465957005,
+              "pcie_rx_kib_per_sec": 524316.0,
+              "pcie_tx_kib_per_sec": 872705.0,
+              "power_watts": 272.717,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 65.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12081561600,
+              "elapsed_seconds": 7932.524796082987,
+              "pcie_rx_kib_per_sec": 5099072.0,
+              "pcie_tx_kib_per_sec": 280078.0,
+              "power_watts": 112.47,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11657936896,
+              "elapsed_seconds": 7967.688609954988,
+              "pcie_rx_kib_per_sec": 69775.0,
+              "pcie_tx_kib_per_sec": 1753173.0,
+              "power_watts": 257.765,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 97.0
+            },
+            {
+              "device_memory_used_bytes": 11834097664,
+              "elapsed_seconds": 8003.457420219987,
+              "pcie_rx_kib_per_sec": 313769.0,
+              "pcie_tx_kib_per_sec": 551123.0,
+              "power_watts": 255.651,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12081561600,
+              "elapsed_seconds": 8036.053965997999,
+              "pcie_rx_kib_per_sec": 5068017.0,
+              "pcie_tx_kib_per_sec": 170214.0,
+              "power_watts": 232.958,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 11599216640,
+              "elapsed_seconds": 8071.0371110319975,
+              "pcie_rx_kib_per_sec": 631689.0,
+              "pcie_tx_kib_per_sec": 263427.0,
+              "power_watts": 98.795,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12178030592,
+              "elapsed_seconds": 8106.569707774004,
+              "pcie_rx_kib_per_sec": 2734.0,
+              "pcie_tx_kib_per_sec": 390.0,
+              "power_watts": 257.017,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 99.0
+            },
+            {
+              "device_memory_used_bytes": 19979436032,
+              "elapsed_seconds": 8139.851720238978,
+              "pcie_rx_kib_per_sec": 12603857.0,
+              "pcie_tx_kib_per_sec": 1763916.0,
+              "power_watts": 124.74,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 81.0
+            },
+            {
+              "device_memory_used_bytes": 16301031424,
+              "elapsed_seconds": 8172.60632336,
+              "pcie_rx_kib_per_sec": 12880273.0,
+              "pcie_tx_kib_per_sec": 1746484.0,
+              "power_watts": 281.185,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12918325248,
+              "elapsed_seconds": 8206.404554993991,
+              "pcie_rx_kib_per_sec": 14277880.0,
+              "pcie_tx_kib_per_sec": 715380.0,
+              "power_watts": 269.571,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 97.0
+            },
+            {
+              "device_memory_used_bytes": 20461780992,
+              "elapsed_seconds": 8242.524948867998,
+              "pcie_rx_kib_per_sec": 11354150.0,
+              "pcie_tx_kib_per_sec": 2092626.0,
+              "power_watts": 229.088,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 15548153856,
+              "elapsed_seconds": 8275.46534445099,
+              "pcie_rx_kib_per_sec": 13167431.0,
+              "pcie_tx_kib_per_sec": 1753759.0,
+              "power_watts": 231.846,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14237433856,
+              "elapsed_seconds": 8308.392218010005,
+              "pcie_rx_kib_per_sec": 3162939.0,
+              "pcie_tx_kib_per_sec": 572656.0,
+              "power_watts": 274.122,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 14325514240,
+              "elapsed_seconds": 8343.44959879099,
+              "pcie_rx_kib_per_sec": 167187.0,
+              "pcie_tx_kib_per_sec": 298291.0,
+              "power_watts": 207.297,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 20960903168,
+              "elapsed_seconds": 8378.118139764003,
+              "pcie_rx_kib_per_sec": 16973242.0,
+              "pcie_tx_kib_per_sec": 2951025.0,
+              "power_watts": 199.988,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 63.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 12918325248,
+              "elapsed_seconds": 8410.582828032988,
+              "pcie_rx_kib_per_sec": 60595.0,
+              "pcie_tx_kib_per_sec": 381933.0,
+              "power_watts": 246.601,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 10129571840,
+              "elapsed_seconds": 8443.319239528006,
+              "pcie_rx_kib_per_sec": 111962.0,
+              "pcie_tx_kib_per_sec": 384472.0,
+              "power_watts": 253.912,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 64.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 9131720704,
+              "elapsed_seconds": 8478.255464037997,
+              "pcie_rx_kib_per_sec": 62939.0,
+              "pcie_tx_kib_per_sec": 660449.0,
+              "power_watts": 189.148,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 62.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 7766933504,
+              "elapsed_seconds": 8513.105424057983,
+              "pcie_rx_kib_per_sec": 87500.0,
+              "pcie_tx_kib_per_sec": 262988.0,
+              "power_watts": 248.805,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 60.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 6102253568,
+              "elapsed_seconds": 8545.833378145006,
+              "pcie_rx_kib_per_sec": 66845.0,
+              "pcie_tx_kib_per_sec": 216064.0,
+              "power_watts": 234.27,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 59.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 6102253568,
+              "elapsed_seconds": 8577.933722174988,
+              "pcie_rx_kib_per_sec": 244.0,
+              "pcie_tx_kib_per_sec": 781.0,
+              "power_watts": 90.298,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 57.0,
+              "utilization_percent": 66.0
+            },
+            {
+              "device_memory_used_bytes": 4785700864,
+              "elapsed_seconds": 8612.048319695983,
+              "pcie_rx_kib_per_sec": 97949.0,
+              "pcie_tx_kib_per_sec": 1182763.0,
+              "power_watts": 124.309,
+              "process_memory_used_bytes": 1491075072,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 65.0
+            },
+            {
+              "device_memory_used_bytes": 4919918592,
+              "elapsed_seconds": 8647.405395165988,
+              "pcie_rx_kib_per_sec": 86572.0,
+              "pcie_tx_kib_per_sec": 201025.0,
+              "power_watts": 272.672,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 58.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 4919918592,
+              "elapsed_seconds": 8679.35033860599,
+              "pcie_rx_kib_per_sec": 69921.0,
+              "pcie_tx_kib_per_sec": 258447.0,
+              "power_watts": 251.484,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 58.0,
+              "utilization_percent": 100.0
+            },
+            {
+              "device_memory_used_bytes": 3546742784,
+              "elapsed_seconds": 8711.164076825982,
+              "pcie_rx_kib_per_sec": 4466503.0,
+              "pcie_tx_kib_per_sec": 213037.0,
+              "power_watts": 229.737,
+              "process_memory_used_bytes": 1461714944,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 18.0
+            },
+            {
+              "device_memory_used_bytes": 3450273792,
+              "elapsed_seconds": 8743.33845222299,
+              "pcie_rx_kib_per_sec": 341.0,
+              "pcie_tx_kib_per_sec": 390.0,
+              "power_watts": 89.7,
+              "process_memory_used_bytes": 1365245952,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 55.0,
+              "utilization_percent": 53.0
+            },
+            {
+              "device_memory_used_bytes": 3576102912,
+              "elapsed_seconds": 8777.276915708993,
+              "pcie_rx_kib_per_sec": 101953.0,
+              "pcie_tx_kib_per_sec": 822949.0,
+              "power_watts": 229.979,
+              "process_memory_used_bytes": 1558183936,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 56.0,
+              "utilization_percent": 72.0
+            },
+            {
+              "device_memory_used_bytes": 3339124736,
+              "elapsed_seconds": 8808.895121631998,
+              "pcie_rx_kib_per_sec": 244.0,
+              "pcie_tx_kib_per_sec": 390.0,
+              "power_watts": 88.247,
+              "process_memory_used_bytes": 1268776960,
+              "sm_clock_mhz": 1410.0,
+              "temperature_c": 53.0,
+              "utilization_percent": 0.0
+            }
+          ],
+          "time_series": {
+            "mean_device_memory_used_bytes": 14778333646.739103,
+            "mean_memory_clock_mhz": 1512.0,
+            "mean_pcie_rx_kib_per_sec": 7436362.025345074,
+            "mean_pcie_tx_kib_per_sec": 1355306.4213469776,
+            "mean_power_watts": 218.57428114163324,
+            "mean_process_memory_used_bytes": 1792293518.3518052,
+            "mean_sm_clock_mhz": 1409.5861664513498,
+            "mean_utilization_percent": 95.21272183314068,
+            "p95_power_watts": 286.27,
+            "p95_utilization_percent": 100.0,
+            "peak_device_memory_used_bytes": 44830687232,
+            "peak_process_memory_used_bytes": 5666504704,
+            "peak_temperature_c": 66.0,
+            "peak_utilization_percent": 100.0,
+            "samples": 58828
+          }
+        },
+        "host_end": {
+          "host_swap_used_bytes": 0,
+          "major_faults": 1476,
+          "minor_faults": 45824302,
+          "vm_swap_bytes": 0
+        },
+        "host_start": {
+          "host_swap_used_bytes": 0,
+          "major_faults": 1476,
+          "minor_faults": 1643945,
+          "vm_swap_bytes": 0
+        },
+        "memory_scope": "driver_and_descendant_processes",
+        "monitor_error": null,
+        "peak_child_rss_bytes": 0,
+        "peak_driver_rss_bytes": 20666302464,
+        "peak_rss_bytes": 20666302464,
+        "peak_rss_increase_bytes": 8431136768,
+        "rss_start_bytes": 12235165696,
+        "wall_seconds": 8832.974624911993
+      },
+      "result_shape": [
+        200,
+        5,
+        27118
+      ],
+      "ridge_parameters": {
+        "alpha": 1.0,
+        "fit_intercept": true
+      },
+      "total_seconds": 8832.259879751015,
+      "train_test_splits": 5,
+      "warmup": true,
+      "workers": 1
+    }
+  },
+  "config": {
+    "bootstrap_iters": 200,
+    "consistency_map": "percentile",
+    "latent_dim": 64,
+    "noise_std": 0.2,
+    "percentile": 99.0,
+    "signal_sources": 32,
+    "sources": 27118,
+    "split_strategy": "blocked",
+    "splits": 5,
+    "stimuli": 30,
+    "targets": 27118,
+    "train_frac": 0.8,
+    "trials": 571
+  },
+  "dataset": {
+    "fixture": null,
+    "origin": "brezovec_fly",
+    "provenance": {
+      "dandiset": {
+        "doi": "10.48324/dandi.000727/0.240106.0043",
+        "file": {
+          "mtime_ns": 1704500379600334882,
+          "path": "/data/group_data/neuroagents_lab/neural_datasets/brezovec_drosophila_data/000727/dandiset.yaml",
+          "size_bytes": 6352
+        },
+        "identifier": "DANDI:000727",
+        "version": "0.240106.0043"
+      },
+      "direction": "right",
+      "interpolation": "linear with endpoint clamping",
+      "interpolation_queries": {
+        "source": {
+          "after_end_count": 0,
+          "before_start_count": 54,
+          "clamped_query_count": 54,
+          "events_with_clamped_queries": 2,
+          "query_count": 18720
+        },
+        "target": {
+          "after_end_count": 0,
+          "before_start_count": 54,
+          "clamped_query_count": 54,
+          "events_with_clamped_queries": 2,
+          "query_count": 17130
+        }
+      },
+      "preparation_seconds": 13.419528911996167,
+      "region": "IPS",
+      "relative_times": {
+        "count": 30,
+        "start": -15.0,
+        "stop": 0.4
+      },
+      "roi_h5": {
+        "mtime_ns": 1784759944859531311,
+        "path": "/data/group_data/neuroagents_lab/neural_datasets/brezovec_drosophila_data/000727/roi_activity.h5",
+        "size_bytes": 83788620764
+      },
+      "roi_order": [
+        "IPS_L",
+        "IPS_R"
+      ],
+      "root": "/data/group_data/neuroagents_lab/neural_datasets/brezovec_drosophila_data/000727",
+      "source_events": {
+        "event_count": 624,
+        "event_source": "historical",
+        "event_times_from": "npz",
+        "window_file": {
+          "mtime_ns": 1786374587535066959,
+          "path": "/data/group_data/neuroagents_lab/autonomous-drosophila/outputs/interanimal/turn_m15_p0p4_v1/events/fly_100_right.npz",
+          "size_bytes": 55938
+        }
+      },
+      "source_fly": "fly_100",
+      "source_nwb": {
+        "file": {
+          "mtime_ns": 1702231858490000009,
+          "path": "/data/group_data/neuroagents_lab/neural_datasets/brezovec_drosophila_data/000727/sub-fly-100/sub-fly-100_ses-20200702083849_behavior+image+ophys.nwb",
+          "size_bytes": 67681351575
+        },
+        "rate": 1.8797144377676087,
+        "samples": 3384,
+        "series_path": "processing/ophys/TwoPhotonSeriesFunctionalGreenProcessed",
+        "starting_time": 0.0,
+        "timestamp_storage": "implicit"
+      },
+      "source_roi_shapes": [
+        [
+          "IPS_L",
+          3384,
+          12990
+        ],
+        [
+          "IPS_R",
+          3384,
+          14128
+        ]
+      ],
+      "target_events": {
+        "event_count": 571,
+        "event_source": "historical",
+        "event_times_from": "npz",
+        "window_file": {
+          "mtime_ns": 1786374587156067510,
+          "path": "/data/group_data/neuroagents_lab/autonomous-drosophila/outputs/interanimal/turn_m15_p0p4_v1/events/fly_099_right.npz",
+          "size_bytes": 51274
+        }
+      },
+      "target_fly": "fly_099",
+      "target_nwb": {
+        "file": {
+          "mtime_ns": 1702231855200000047,
+          "path": "/data/group_data/neuroagents_lab/neural_datasets/brezovec_drosophila_data/000727/sub-fly-099/sub-fly-099_ses-20200627142647_behavior+image+ophys.nwb",
+          "size_bytes": 68193425704
+        },
+        "rate": 1.8797144377676087,
+        "samples": 3384,
+        "series_path": "processing/ophys/TwoPhotonSeriesFunctionalGreenProcessed",
+        "starting_time": 0.0,
+        "timestamp_storage": "implicit"
+      },
+      "target_roi_shapes": [
+        [
+          "IPS_L",
+          3384,
+          12990
+        ],
+        [
+          "IPS_R",
+          3384,
+          14128
+        ]
+      ],
+      "target_selection": {
+        "full_count": 27118,
+        "indices": null,
+        "is_slice": false,
+        "selected_count": 27118,
+        "strategy": "all"
+      }
+    },
+    "source": {
+      "bytes": 4061191680,
+      "dtype": "float64",
+      "shape": [
+        624,
+        30,
+        27118
+      ]
+    },
+    "split_strategy": "blocked",
+    "standalone_test_samples": 6,
+    "standalone_train_samples": 24,
+    "target": {
+      "bytes": 3716250720,
+      "dtype": "float64",
+      "shape": [
+        571,
+        30,
+        27118
+      ]
+    },
+    "train_test_indices": [
+      {
+        "test": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "train": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29
+        ]
+      },
+      {
+        "test": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29
+        ]
+      },
+      {
+        "test": [
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29
+        ]
+      },
+      {
+        "test": [
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29
+        ]
+      },
+      {
+        "test": [
+          24,
+          25,
+          26,
+          27,
+          28,
+          29
+        ],
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "cpu": {
+      "affinity_cpus": 32,
+      "logical_cpus": 128,
+      "model": "AMD EPYC 7763 64-Core Processor"
+    },
+    "cuda_probe": {
+      "available": true,
+      "cuml_version": "25.10.00",
+      "cupy_version": "14.2.0",
+      "device_count": 1,
+      "device_index": 0,
+      "reason": null,
+      "torch_cuda_available": true,
+      "torch_device_count": 1,
+      "torch_version": "2.9.1+cu128"
+    },
+    "gpu_devices": [
+      {
+        "driver_version": "610.43.02",
+        "index": 0,
+        "memory_total_bytes": 85899345920,
+        "name": "NVIDIA A100 80GB PCIe",
+        "uuid": "GPU-39ae3dcd-2485-fa55-284a-e2f91bdd3661"
+      }
+    ],
+    "host_inventory": {
+      "cores_per_socket": 64,
+      "cpu_model": "AMD EPYC 7763 64-Core Processor",
+      "cuda_visible_devices": "0",
+      "cwd_disk_free_bytes": 56593743872,
+      "cwd_disk_total_bytes": 107374182400,
+      "gpus": [
+        {
+          "driver_version": "610.43.02",
+          "max_memory_clock_mhz": 1512.0,
+          "max_sm_clock_mhz": 1410.0,
+          "memory_total_bytes": 85899345920,
+          "name": "NVIDIA A100 80GB PCIe",
+          "nvml_index": 0,
+          "pci_bus_id": "00000000:C1:00.0",
+          "power_limit_watts": 300.0,
+          "uuid": "GPU-39ae3dcd-2485-fa55-284a-e2f91bdd3661"
+        }
+      ],
+      "hostname": "babel-v5-20",
+      "local_tmp": "/tmp/dkutsche",
+      "logical_cpus": 128,
+      "memory_total_bytes": 1081482108928,
+      "numa_nodes": 2,
+      "physical_cores_estimate": 128,
+      "siblings_per_socket": 64,
+      "slurm_job_gpus": "5",
+      "slurm_job_id": "10199059",
+      "smt_enabled": false,
+      "sockets": 2,
+      "swap_total_bytes": 4294963200
+    },
+    "libraries": {
+      "cuml": "25.10.00",
+      "cupy": "14.2.0",
+      "h5py": "3.16.0",
+      "numpy": "2.2.6",
+      "scikit_learn": "1.7.2",
+      "scipy": "1.18.0",
+      "torch": "2.9.1+cu128"
+    },
+    "platform": "Linux-5.14.0-687.25.1.el9_8.x86_64-x86_64-with-glibc2.34",
+    "process_peak_rss_bytes_at_end": 20657967104,
+    "process_peak_rss_bytes_at_start": 8818155520,
+    "python": "3.12.13",
+    "repository": {
+      "commit": "b84707ef983ad513d2d22d480e83b667178b0787",
+      "dirty": true,
+      "root": "/home/dkutsche/brainmodel_utils"
+    },
+    "threads": {
+      "benchmark_workers": 1,
+      "environment": {
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1"
+      }
+    },
+    "timestamp_utc": "2026-08-23T20:43:08Z"
+  },
+  "schema_version": 3,
+  "seed": 3400,
+  "split_seed": 0,
+  "suite": "production",
+  "workloads": [
+    "consistency"
+  ]
+}

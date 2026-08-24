@@ -78,6 +78,12 @@ fi
 if [[ "${SAVE_PRECISION:-0}" == "1" ]]; then
   cmd+=(--save-precision)
 fi
+if [[ -n "${SHARDS:-}" ]]; then
+  cmd+=(--shards "$SHARDS")
+fi
+if [[ -n "${DEVICES:-}" ]]; then
+  cmd+=(--devices "$DEVICES")
+fi
 echo "host=$(hostname) job=${SLURM_JOB_ID:-none} backend=$BACKEND workers=$WORKERS"
 date -Is
 printf '%q ' "${cmd[@]}"
