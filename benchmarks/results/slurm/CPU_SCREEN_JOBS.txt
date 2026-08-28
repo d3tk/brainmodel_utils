@@ -1,5 +1,0 @@
-10186516 workers=1 cpus=8 mem=32G
-10186517 workers=2 cpus=8 mem=48G
-10186518 workers=4 cpus=8 mem=64G
-10186519 workers=8 cpus=8 mem=80G
-10186520 workers=16 cpus=16 mem=128G
