@@ -2,7 +2,9 @@ import numpy as np
 
 from . import neural_map_base as nm
 from .backends import (
+    CORRELATION_CUTOFF_EPS_MULTIPLIER,
     can_batch_cuda_ridge,
+    correlation_cutoff_tolerance,
     correlations_cuda,
     fit_grouped_ridge_cuda,
     make_resolved_regressor,
@@ -29,7 +31,7 @@ class PercentileNeuralMap(nm.NeuralMapBase):
         percentile=100,
         identity=True,
         regression_type="Ridge",
-        regression_kwargs={},
+        regression_kwargs=None,
         weights_save_nm=None,
         store_correlations=True,
         correlation_target_batch_size=None,
@@ -43,7 +45,7 @@ class PercentileNeuralMap(nm.NeuralMapBase):
         # Default is 100th percentile, meaning only select the best source
         # feature.
         self._regression_type = regression_type
-        self._regression_kwargs = regression_kwargs
+        self._regression_kwargs = {} if regression_kwargs is None else regression_kwargs
         self._percentile = percentile
         self._identity = identity
         if self._identity:
@@ -133,6 +135,7 @@ class PercentileNeuralMap(nm.NeuralMapBase):
         self._thresholds = None
         self._cuda_source_indices = None
         self._grouped_mapper = None
+        self._cuda_batch_report = None
 
         if self._identity:
             self._resolved_backend = resolve_torch_backend(self._backend)
@@ -174,9 +177,20 @@ class PercentileNeuralMap(nm.NeuralMapBase):
                 max_batch_size=self._ridge_max_batch_size,
             )
             grouped = self._grouped_mapper
+            correlation_dtype_requested = (
+                None
+                if self._correlation_dtype is None
+                else str(np.dtype(self._correlation_dtype))
+            )
+            correlation_dtype_effective = str(np.asarray(self._thresholds).dtype)
+            coefficient_dtype = str(
+                np.result_type(*(mapper.coef_.dtype for mapper in self._mappers))
+            )
             self._cuda_batch_report = {
                 "n_samples": int(X.shape[0]),
                 "n_targets": int(self._n_targets),
+                "source_input_dtype": str(np.asarray(X).dtype),
+                "target_input_dtype": str(np.asarray(Y).dtype),
                 "correlation_target_batch_size_requested": (
                     self._correlation_target_batch_size
                 ),
@@ -197,11 +211,17 @@ class PercentileNeuralMap(nm.NeuralMapBase):
                 "ridge_promoted_to_float64": getattr(
                     grouped, "promoted_to_float64", False
                 ),
-                "correlation_dtype": (
-                    None
-                    if self._correlation_dtype is None
-                    else str(np.dtype(self._correlation_dtype))
+                "ridge_shared_design": getattr(grouped, "shared_design", False),
+                "correlation_dtype": correlation_dtype_requested,
+                "correlation_dtype_requested": correlation_dtype_requested,
+                "correlation_dtype_effective": correlation_dtype_effective,
+                "selection_cutoff_epsilon_multiplier": (
+                    CORRELATION_CUTOFF_EPS_MULTIPLIER
                 ),
+                "ridge_compute_dtype": str(grouped.compute_dtype),
+                "coefficient_dtype": coefficient_dtype,
+                "prediction_compute_dtype": str(grouped.compute_dtype),
+                "prediction_output_dtype": str(grouped.prediction_output_dtype),
             }
             set_last_cuda_batch_report(self._cuda_batch_report)
             if self._weights_save_nm is not None:
@@ -259,7 +279,7 @@ class PercentileNeuralMap(nm.NeuralMapBase):
         assert self._corrs.shape == (self._n_source, self._n_targets)
         corrs = self._corrs[:, target_idx]
         percentile = self._thresholds[target_idx]
-        source_idxs = corrs >= percentile
+        source_idxs = corrs >= percentile - correlation_cutoff_tolerance(percentile)
         if (~source_idxs).all():
             # In this case, the source corrs were all nan, so nanpercentile returned all False.
             # This was because on some trials the target neuron can be constant (0) firing rate,

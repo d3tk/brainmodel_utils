@@ -8,12 +8,18 @@ import numpy as np
 import pytest
 
 import benchmarks.benchmark_neural_backends as benchmark
+from benchmarks.artifacts import validate_artifact_record
 from benchmarks.benchmark_neural_backends import (
     NEURAL_SERIES_PATH,
     build_parser,
     load_fly_data,
     make_train_test_splits,
     run_benchmarks,
+)
+from benchmarks.precision import (
+    CONSISTENCY_METRICS,
+    load_precision_diagnostic,
+    validate_precision_artifact,
 )
 
 
@@ -78,6 +84,48 @@ def _make_fly_fixture(tmp_path):
     return root, source_fly, target_fly
 
 
+def _learned_fit_command(output, learned_fit, metrics=None):
+    command = [
+        "--suite",
+        "smoke",
+        "--backend",
+        "cpu",
+        "--dtype",
+        "float64",
+        "--workloads",
+        "consistency",
+        "--consistency-map",
+        "percentile",
+        "--percentile",
+        "50",
+        "--stimuli",
+        "20",
+        "--sources",
+        "8",
+        "--targets",
+        "3",
+        "--trials",
+        "4",
+        "--latent-dim",
+        "4",
+        "--signal-sources",
+        "2",
+        "--bootstrap-iters",
+        "1",
+        "--splits",
+        "2",
+        "--monitor-interval",
+        "0.01",
+        "--output",
+        str(output),
+        "--save-learned-fit",
+        str(learned_fit),
+    ]
+    if metrics is not None:
+        command.extend(["--save-precision-artifacts", str(metrics)])
+    return command
+
+
 def test_cpu_smoke_benchmark():
     args = build_parser().parse_args(
         [
@@ -93,6 +141,7 @@ def test_cpu_smoke_benchmark():
     result = run_benchmarks(args)
 
     assert result["schema_version"] == 3
+    assert result["backend_requested"] == "cpu"
     assert result["backend_effective"] == "cpu"
     assert result["backend_effective_by_workload"] == {
         "transfer": "cpu",
@@ -111,6 +160,19 @@ def test_cpu_smoke_benchmark():
         "linregress_consistency",
     }
     assert result["benchmarks"]["host_device_transfer"]["measured"] is False
+    assert result["dtypes"]["requested"] == {
+        "preparation": "float32",
+        "mapper_input": "float32",
+        "correlation": "float32",
+        "compute_override_explicit": False,
+        "correlation_override_explicit": False,
+        "mixed_precision_allowed": False,
+    }
+    assert result["dtypes"]["effective"]["preparation"] == {
+        "source": "float32",
+        "target": "float32",
+    }
+    assert result["dataset"]["source"]["sha256_scope"] == "full_array_bytes"
     assert result["benchmarks"]["ridge_mapper"]["resources"]["cpu"]["total_seconds"] > 0
     percentile = result["benchmarks"]["percentile_mapper"]
     preprocessing_seconds = percentile["correlation_and_source_selection_seconds"]
@@ -145,6 +207,333 @@ def test_cpu_smoke_benchmark():
         == summaries["test"]["r_xy_n_sb"]["global"]["mean"]
     )
     json.dumps(result, allow_nan=False)
+
+
+def test_consistency_saves_strict_learned_fit_and_metric_artifacts(tmp_path):
+    output = tmp_path / "result.json"
+    learned_fit = tmp_path / "learned_fit.npz"
+    metrics = tmp_path / "result.metrics.npz"
+
+    assert benchmark.main(_learned_fit_command(output, learned_fit, metrics)) == 0
+
+    document = json.loads(output.read_text())
+    consistency = document["benchmarks"]["linregress_consistency"]
+    learned_record = consistency["learned_fit"]
+    assert validate_artifact_record(output, learned_record["arrays"]) == learned_fit
+    assert validate_artifact_record(
+        output, learned_record["metadata"]
+    ) == learned_fit.with_suffix(".json")
+    assert validate_artifact_record(output, consistency["precision_metrics"]) == (
+        metrics
+    )
+    assert not Path(learned_record["arrays"]["path"]).is_absolute()
+    assert not Path(consistency["precision_metrics"]["path"]).is_absolute()
+
+    arrays, metadata = load_precision_diagnostic(learned_fit)
+    assert validate_precision_artifact(arrays, metadata) == []
+    assert metadata["backend_requested"] == "cpu"
+    assert metadata["backend_effective"] == "cpu"
+    assert metadata["bootstrap_index"] == 0
+    assert metadata["fold_index"] == 0
+    assert metadata["seed"] == {
+        "bootstrap_start": 1234,
+        "bootstrap": 1234,
+        "split": 0,
+    }
+    assert metadata["configuration"]["mapping"] == {
+        "map_type": "percentile",
+        "percentile": 50.0,
+        "identity": False,
+        "regression_type": "Ridge",
+        "regression_kwargs": {"alpha": 1.0, "fit_intercept": True},
+        "selection_cutoff_tolerance": {
+            "epsilon_multiplier": 8,
+            "scale": "max(1, abs(percentile_threshold))",
+        },
+    }
+    np.testing.assert_array_equal(arrays["target_indices"], [0, 1, 2])
+    for role in ("full", "half_1", "half_2"):
+        assert arrays[f"{role}_correlations"].shape == (8, 3)
+        assert arrays[f"{role}_coefficients"].shape[0] == 3
+        assert arrays[f"{role}_intercepts"].shape == (3,)
+        assert arrays[f"{role}_train_prediction"].shape[-1] == 3
+        assert arrays[f"{role}_test_prediction"].shape[-1] == 3
+    for split in ("train", "test"):
+        for name in CONSISTENCY_METRICS:
+            assert arrays[f"{split}_{name}"].shape == (3,)
+
+    with np.load(metrics, allow_pickle=False) as metric_payload:
+        assert set(metric_payload.files) == {
+            f"{split}_{name}"
+            for split in ("train", "test")
+            for name in CONSISTENCY_METRICS
+        }
+        for split in ("train", "test"):
+            for name in CONSISTENCY_METRICS:
+                key = f"{split}_{name}"
+                np.testing.assert_array_equal(arrays[key], metric_payload[key][0, 0])
+
+
+def test_learned_fit_selects_exact_bootstrap_fold_and_targets(tmp_path):
+    output = tmp_path / "result.json"
+    learned_fit = tmp_path / "learned_fit.npz"
+    metrics = tmp_path / "metrics.npz"
+    command = _learned_fit_command(output, learned_fit, metrics)
+    command.extend(
+        [
+            "--targets",
+            "5",
+            "--bootstrap-iters",
+            "3",
+            "--splits",
+            "3",
+            "--learned-bootstrap-index",
+            "2",
+            "--learned-fold-index",
+            "1",
+            "--learned-fit-target-limit",
+            "3",
+        ]
+    )
+
+    assert benchmark.main(command) == 0
+
+    document = json.loads(output.read_text())
+    consistency = document["benchmarks"]["linregress_consistency"]
+    assert consistency["result_shape"] == [3, 3, 5]
+    arrays, metadata = load_precision_diagnostic(learned_fit)
+    assert metadata["bootstrap_index"] == 2
+    assert metadata["fold_index"] == 1
+    assert metadata["seed"]["bootstrap"] == 1236
+    assert metadata["seed"]["split"] == 0
+    selection = metadata["dataset"]["diagnostic_target_selection"]
+    assert selection == {
+        "strategy": "evenly_spaced",
+        "full_target_count": 5,
+        "selected_target_count": 3,
+        "positions": [0, 2, 4],
+        "original_target_ids": [0, 2, 4],
+    }
+    np.testing.assert_array_equal(arrays["target_indices"], [0, 2, 4])
+    expected_splits = make_train_test_splits("random", 20, 3, 0.8, 0)
+    np.testing.assert_array_equal(arrays["train_indices"], expected_splits[1]["train"])
+    np.testing.assert_array_equal(arrays["test_indices"], expected_splits[1]["test"])
+    with np.load(metrics, allow_pickle=False) as metric_payload:
+        for split in ("train", "test"):
+            for name in CONSISTENCY_METRICS:
+                key = f"{split}_{name}"
+                np.testing.assert_array_equal(
+                    arrays[key], metric_payload[key][2, 1, [0, 2, 4]]
+                )
+
+
+def test_learned_fit_selects_explicit_target_ids(tmp_path):
+    output = tmp_path / "result.json"
+    learned_fit = tmp_path / "learned_fit.npz"
+    command = _learned_fit_command(output, learned_fit)
+    command.extend(
+        [
+            "--targets",
+            "6",
+            "--learned-target-indices",
+            "1,4",
+        ]
+    )
+
+    assert benchmark.main(command) == 0
+
+    arrays, metadata = load_precision_diagnostic(learned_fit)
+    np.testing.assert_array_equal(arrays["target_indices"], [1, 4])
+    assert metadata["dataset"]["diagnostic_target_selection"] == {
+        "strategy": "explicit",
+        "full_target_count": 6,
+        "selected_target_count": 2,
+        "positions": [1, 4],
+        "original_target_ids": [1, 4],
+    }
+
+
+def test_target_index_parser_requires_sorted_unique_values():
+    parser = build_parser()
+    args = parser.parse_args(["--fly-data-root", "/data", "--target-indices", "1,4,9"])
+    assert args.target_indices == (1, 4, 9)
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--target-indices", "4,1"])
+
+
+def test_fold_index_runs_only_the_requested_generated_fold():
+    args = build_parser().parse_args(
+        [
+            "--suite",
+            "smoke",
+            "--backend",
+            "cpu",
+            "--workloads",
+            "consistency",
+            "--bootstrap-iters",
+            "1",
+            "--splits",
+            "3",
+            "--fold-index",
+            "2",
+            "--monitor-interval",
+            "0.01",
+        ]
+    )
+
+    result = run_benchmarks(args)
+
+    assert result["dataset"]["selected_fold_indices"] == [2]
+    assert result["dataset"]["train_test_indices"][0]["fold_index"] == 2
+    assert result["benchmarks"]["linregress_consistency"]["result_shape"] == [
+        1,
+        1,
+        6,
+    ]
+    expected = make_train_test_splits("random", 48, 3, 0.8, 0)[2]
+    np.testing.assert_array_equal(
+        result["dataset"]["train_test_indices"][0]["train"], expected["train"]
+    )
+    np.testing.assert_array_equal(
+        result["dataset"]["train_test_indices"][0]["test"], expected["test"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("arguments", "message"),
+    [
+        (["--splits", "2", "--fold-index", "2"], "fold index"),
+        (
+            ["--bootstrap-iters", "2", "--learned-bootstrap-index", "2"],
+            "learned bootstrap index",
+        ),
+        (["--splits", "2", "--learned-fold-index", "2"], "learned fold index"),
+    ],
+)
+def test_precision_cell_indices_are_validated_before_data_load(
+    monkeypatch, arguments, message
+):
+    args = build_parser().parse_args(["--suite", "smoke"] + arguments)
+    monkeypatch.setattr(
+        benchmark,
+        "make_correlated_data",
+        lambda *args, **kwargs: pytest.fail("data loaded before index validation"),
+    )
+
+    with pytest.raises(ValueError, match=message):
+        run_benchmarks(args)
+
+
+def test_learned_dataset_omits_dynamic_preparation_time():
+    dataset = {
+        "source": {"sha256": "source"},
+        "target": {"sha256": "target"},
+        "provenance": {
+            "preparation_seconds": 3.25,
+            "roi_h5": {"sha256": "roi"},
+        },
+    }
+    selection = {
+        "strategy": "all",
+        "full_target_count": 2,
+        "selected_target_count": 2,
+        "positions": [0, 1],
+        "original_target_ids": [0, 1],
+    }
+
+    learned = benchmark._learned_fit_dataset(dataset, selection)
+
+    assert "preparation_seconds" not in learned["provenance"]
+    assert learned["provenance"]["roi_h5"]["sha256"] == "roi"
+    assert learned["source"]["sha256"] == "source"
+    assert learned["target"]["sha256"] == "target"
+    assert learned["diagnostic_target_selection"] == selection
+    assert dataset["provenance"]["preparation_seconds"] == 3.25
+
+
+def test_failed_learned_fit_does_not_publish_result_json(monkeypatch, tmp_path):
+    output = tmp_path / "result.json"
+    learned_fit = tmp_path / "learned_fit.npz"
+
+    def fail_diagnostic(*args, **kwargs):
+        raise RuntimeError("diagnostic write failed")
+
+    monkeypatch.setattr(benchmark, "save_precision_diagnostic", fail_diagnostic)
+
+    with pytest.raises(SystemExit):
+        benchmark.main(_learned_fit_command(output, learned_fit))
+
+    assert not output.exists()
+
+
+def test_dtype_infers_correlation_from_mapper_input():
+    args = build_parser().parse_args(
+        [
+            "--suite",
+            "smoke",
+            "--backend",
+            "cpu",
+            "--dtype",
+            "float64",
+            "--workloads",
+            "percentile",
+            "--monitor-interval",
+            "0.01",
+        ]
+    )
+
+    result = run_benchmarks(args)
+
+    assert result["dtypes"]["requested"]["mapper_input"] == "float64"
+    assert result["dtypes"]["requested"]["correlation"] == "float64"
+    effective = result["dtypes"]["effective"]
+    assert effective["mapper_input"] == {
+        "source": "float64",
+        "target": "float64",
+    }
+    assert effective["by_workload"]["percentile_mapper"]["correlation"] == ("float64")
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        ["--compute-dtype", "float32"],
+        ["--correlation-dtype", "float32"],
+    ],
+)
+def test_dtype_rejects_implicit_mixed_precision_before_data_load(monkeypatch, override):
+    args = build_parser().parse_args(
+        ["--dtype", "float64", "--workloads", "ridge"] + override
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "make_correlated_data",
+        lambda *args, **kwargs: pytest.fail("data made before dtype validation"),
+    )
+
+    with pytest.raises(ValueError, match="allow-mixed-precision"):
+        run_benchmarks(args)
+
+
+def test_mixed_precision_requires_explicit_opt_in():
+    args = build_parser().parse_args(
+        [
+            "--dtype",
+            "float64",
+            "--compute-dtype",
+            "float32",
+            "--correlation-dtype",
+            "float64",
+            "--allow-mixed-precision",
+        ]
+    )
+
+    plan = benchmark._precision_plan(args)
+
+    assert plan["preparation"] == np.dtype("float64")
+    assert plan["mapper_input"] == np.dtype("float32")
+    assert plan["correlation"] == np.dtype("float64")
+    assert plan["allow_mixed_precision"]
 
 
 def test_percentile_phase_includes_threshold_and_source_selection(monkeypatch):
@@ -363,6 +752,33 @@ def test_load_fly_data_event_sources_and_target_slice(tmp_path):
     assert provenance["source_events"]["event_file"]["path"].endswith(
         "fly_001_turn_bouts.csv"
     )
+    assert len(provenance["source_events"]["event_file"]["sha256"]) == 64
+
+
+@pytest.mark.parametrize(
+    ("region", "width", "roi_order"),
+    [("IPS_L", 2, ["IPS_L"]), ("IPS_R", 1, ["IPS_R"])],
+)
+def test_load_fly_data_selects_individual_ips_regions(
+    tmp_path, region, width, roi_order
+):
+    root, source_fly, target_fly = _make_fly_fixture(tmp_path)
+
+    source, target, provenance = load_fly_data(
+        root,
+        source_fly,
+        target_fly,
+        "right",
+        region,
+        "validated",
+        np.dtype("float64"),
+    )
+
+    assert source.shape == (4, 6, width)
+    assert target.shape == (4, 6, width)
+    assert source.dtype == target.dtype == np.float64
+    assert provenance["roi_order"] == roi_order
+    assert build_parser().parse_args(["--region", region]).region == region
 
 
 def test_nwb_lookup_rejects_ambiguous_sessions(tmp_path):
@@ -394,7 +810,7 @@ def test_backend_resolution_is_per_workload(monkeypatch):
     )
 
     resolved = benchmark._resolve_workload_backends(
-        "auto",
+        "cuda",
         ["transfer", "ridge", "percentile", "consistency"],
         "ridge",
         {"alpha": 1.0},
@@ -407,6 +823,89 @@ def test_backend_resolution_is_per_workload(monkeypatch):
         "percentile": "cpu",
         "consistency": "cuda",
     }
+
+
+def test_benchmark_parser_rejects_auto_backend():
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["--backend", "auto"])
+
+
+def test_explicit_cuda_preflight_fails_before_fly_data_load(monkeypatch, tmp_path):
+    args = build_parser().parse_args(
+        [
+            "--backend",
+            "cuda",
+            "--fly-data-root",
+            str(tmp_path),
+            "--workloads",
+            "ridge",
+        ]
+    )
+    calls = []
+    monkeypatch.setattr(
+        benchmark,
+        "_resolve_workload_backends",
+        lambda *args, **kwargs: calls.append("resolve") or {"ridge": "cuda"},
+    )
+
+    def reject_device(*args, **kwargs):
+        calls.append("device")
+        raise RuntimeError("CUDA device preflight failed")
+
+    monkeypatch.setattr(benchmark, "_select_cuda_device", reject_device)
+    monkeypatch.setattr(
+        benchmark,
+        "load_fly_data",
+        lambda *args, **kwargs: pytest.fail("fly data loaded before CUDA preflight"),
+    )
+
+    with pytest.raises(RuntimeError, match="preflight failed"):
+        run_benchmarks(args)
+
+    assert calls == ["resolve", "device"]
+
+
+def test_explicit_cuda_rejects_any_non_cuda_workload_before_data_load(
+    monkeypatch, tmp_path
+):
+    args = build_parser().parse_args(
+        [
+            "--backend",
+            "cuda",
+            "--fly-data-root",
+            str(tmp_path),
+            "--workloads",
+            "transfer",
+            "ridge",
+            "percentile",
+            "consistency",
+        ]
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "_resolve_workload_backends",
+        lambda *args, **kwargs: {
+            "transfer": "cuda",
+            "ridge": "cuda",
+            "percentile": "cpu",
+            "consistency": "cuda",
+        },
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "_select_cuda_device",
+        lambda *args, **kwargs: pytest.fail(
+            "selected device after failed postcondition"
+        ),
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "load_fly_data",
+        lambda *args, **kwargs: pytest.fail("loaded data after failed postcondition"),
+    )
+
+    with pytest.raises(RuntimeError, match="percentile"):
+        run_benchmarks(args)
 
 
 def test_explicit_ridge_resolution_does_not_require_torch(monkeypatch):
@@ -426,18 +925,17 @@ def test_explicit_ridge_resolution_does_not_require_torch(monkeypatch):
     ) == {"ridge": "cuda"}
 
 
-def test_auto_unsupported_solver_is_labeled_cpu(monkeypatch):
+def test_cuda_unsupported_solver_raises(monkeypatch):
     monkeypatch.setattr(
         benchmark.neural_backends,
         "cuda_available",
         lambda: pytest.fail("unsupported solver queried CUDA availability"),
     )
 
-    resolved = benchmark._resolve_workload_backends(
-        "auto", ["ridge"], "ridge", {"solver": "sag"}, 0
-    )
-
-    assert resolved == {"ridge": "cpu"}
+    with pytest.raises(ValueError, match="solver"):
+        benchmark._resolve_workload_backends(
+            "cuda", ["ridge"], "ridge", {"solver": "sag"}, 0
+        )
 
 
 def test_gpu_index_selects_cupy_device(monkeypatch):

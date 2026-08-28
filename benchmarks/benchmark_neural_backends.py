@@ -1,7 +1,9 @@
 """Reproducible neural mapper and consistency benchmarks."""
 
 import argparse
+import copy
 import csv
+import hashlib
 import inspect
 import json
 import math
@@ -13,6 +15,7 @@ import subprocess
 import sys
 import threading
 import time
+from collections import OrderedDict
 from pathlib import Path
 
 import h5py
@@ -20,17 +23,25 @@ import numpy as np
 import scipy
 import sklearn
 
-from brainmodel_utils.metrics.consistency import get_linregress_consistency
-from brainmodel_utils.neural_mappers import PercentileNeuralMap, SKLinearNeuralMap
-from brainmodel_utils.neural_mappers import backends as neural_backends
-from brainmodel_utils.neural_mappers.profiling import record_phases
-from brainmodel_utils.neural_mappers.utils import generate_train_test_splits
+from benchmarks.artifacts import artifact_record, atomic_savez, atomic_write_json
+from benchmarks.config_manifest import repository_identity
+from benchmarks.precision import CONSISTENCY_METRICS, save_precision_diagnostic
 from benchmarks.telemetry import (
     GpuSampler,
     collect_host_inventory,
     host_faults_and_swap,
     summarize_gpu_samples,
 )
+from brainmodel_utils.metrics.consistency import get_linregress_consistency
+from brainmodel_utils.metrics.utils import generic_trial_avg, get_splithalves
+from brainmodel_utils.neural_mappers import (
+    PercentileNeuralMap,
+    PipelineNeuralMap,
+    SKLinearNeuralMap,
+)
+from brainmodel_utils.neural_mappers import backends as neural_backends
+from brainmodel_utils.neural_mappers.profiling import record_phases
+from brainmodel_utils.neural_mappers.utils import generate_train_test_splits
 
 SUITES = {
     "smoke": {
@@ -72,9 +83,14 @@ WORKLOAD_KEYS = {
     "percentile": "percentile_mapper",
     "consistency": "linregress_consistency",
 }
-REGION_ROIS = {"IPS": ("IPS_L", "IPS_R")}
+REGION_ROIS = {
+    "IPS": ("IPS_L", "IPS_R"),
+    "IPS_L": ("IPS_L",),
+    "IPS_R": ("IPS_R",),
+}
 NEURAL_SERIES_PATH = "processing/ophys/TwoPhotonSeriesFunctionalGreenProcessed"
 SELECTED_SOURCE_DETAIL_LIMIT = 256
+PROVENANCE_HASH_LIMIT_BYTES = 64 * 1024**2
 BENCHMARK_SCHEMA_VERSION = 3
 
 THREAD_ENV_VARS = (
@@ -323,16 +339,12 @@ def _resolve_transfer_backend(backend, gpu_index):
 
         device_count = int(cupy.cuda.runtime.getDeviceCount())
     except (ImportError, OSError, RuntimeError) as error:
-        if backend == "cuda":
-            raise RuntimeError(f"CUDA transfer backend is unavailable: {error}")
-        return "cpu"
+        raise RuntimeError(f"CUDA transfer backend is unavailable: {error}")
     if gpu_index < device_count:
         return "cuda"
-    if backend == "cuda":
-        raise RuntimeError(
-            f"CUDA device index {gpu_index} is unavailable; {device_count} devices are visible"
-        )
-    return "cpu"
+    raise RuntimeError(
+        f"CUDA device index {gpu_index} is unavailable; {device_count} devices are visible"
+    )
 
 
 def _resolve_workload_backends(
@@ -363,6 +375,19 @@ def _resolve_workload_backends(
         else:
             resolved[workload] = ridge_backend
     return resolved
+
+
+def _verify_explicit_backend(requested_backend, workloads, effective_backends):
+    if requested_backend != "cuda":
+        return
+    non_cuda = [
+        workload for workload in workloads if effective_backends.get(workload) != "cuda"
+    ]
+    if non_cuda:
+        raise RuntimeError(
+            "explicit CUDA benchmark resolved non-CUDA workloads: "
+            + ", ".join(non_cuda)
+        )
 
 
 def _select_cuda_device(gpu_index, require_torch):
@@ -440,9 +465,13 @@ class ResourceMonitor:
                 continue
             self.cpu_tick_baseline.setdefault(pid, 0)
             self.cpu_tick_latest[pid] = ticks
-        elapsed = None if self.wall_start is None else time.perf_counter() - self.wall_start
+        elapsed = (
+            None if self.wall_start is None else time.perf_counter() - self.wall_start
+        )
         if self.gpu_reader is not None:
-            sample = self.gpu_reader.sample(pids=_process_tree_pids(self.root_pid)) or {}
+            sample = (
+                self.gpu_reader.sample(pids=_process_tree_pids(self.root_pid)) or {}
+            )
             sample["elapsed_seconds"] = elapsed
             self.gpu_samples.append(sample)
             memory = sample.get("device_memory_used_bytes")
@@ -515,9 +544,7 @@ class ResourceMonitor:
         peak_tree = self.peak_tree_rss or None
         baseline = self.rss_start
         gpu_summary = summarize_gpu_samples(self.gpu_samples)
-        identity = (
-            self.gpu_reader.identity if self.gpu_reader is not None else None
-        )
+        identity = self.gpu_reader.identity if self.gpu_reader is not None else None
         gpu_result = {
             "sampled": self.gpu_reader is not None,
             "method": self.gpu_reader.method if self.gpu_reader is not None else None,
@@ -561,7 +588,7 @@ class ResourceMonitor:
 def _compact_gpu_series(samples, limit=256):
     if not samples:
         return []
-    stride = max(1, int(math.ceil(len(samples) / float(limit))))
+    stride = max(1, math.ceil(len(samples) / float(limit)))
     keys = (
         "elapsed_seconds",
         "utilization_percent",
@@ -634,7 +661,90 @@ def _mapper_options(
     return options
 
 
-def _percentile_extras(args):
+def _effective_mapper_backend(mapper, expected_backend):
+    effective = getattr(mapper, "_resolved_backend", None)
+    if effective is None:
+        raise RuntimeError("mapper did not report an effective backend after fitting")
+    if effective != expected_backend:
+        raise RuntimeError(
+            f"mapper resolved backend {effective}, expected {expected_backend}"
+        )
+    return effective
+
+
+def _dtype_name(dtype):
+    return str(np.dtype(dtype))
+
+
+def _precision_plan(args):
+    preparation = np.dtype(args.dtype)
+    compute_option = getattr(args, "compute_dtype", None)
+    mapper_input = np.dtype(compute_option) if compute_option else preparation
+    correlation_option = getattr(args, "correlation_dtype", None)
+    correlation = np.dtype(correlation_option) if correlation_option else mapper_input
+    allow_mixed = bool(getattr(args, "allow_mixed_precision", False))
+    mismatches = []
+    if mapper_input != preparation:
+        mismatches.append(
+            f"--compute-dtype {_dtype_name(mapper_input)} differs from "
+            f"--dtype {_dtype_name(preparation)}"
+        )
+    if correlation != mapper_input:
+        mismatches.append(
+            f"--correlation-dtype {_dtype_name(correlation)} differs from mapper "
+            f"input dtype {_dtype_name(mapper_input)}"
+        )
+    if mismatches and not allow_mixed:
+        raise ValueError(
+            "; ".join(mismatches) + "; pass --allow-mixed-precision for diagnostics"
+        )
+    return {
+        "allow_mixed_precision": allow_mixed,
+        "preparation": preparation,
+        "mapper_input": mapper_input,
+        "correlation": correlation,
+        "compute_explicit": compute_option is not None,
+        "correlation_explicit": correlation_option is not None,
+    }
+
+
+def _validate_artifact_options(args, workloads):
+    metrics_path = getattr(args, "save_precision_artifacts", None)
+    learned_fit_path = getattr(args, "save_learned_fit", None)
+    if (metrics_path or learned_fit_path) and args.output == "-":
+        raise ValueError("precision artifacts require --output to be a JSON path")
+    if args.output != "-":
+        output = Path(args.output).resolve()
+        artifacts = [path for path in (metrics_path, learned_fit_path) if path]
+        if any(Path(path).resolve() == output for path in artifacts):
+            raise ValueError("precision artifact paths must differ from --output")
+        if (
+            learned_fit_path
+            and Path(learned_fit_path).with_suffix(".json").resolve() == output
+        ):
+            raise ValueError("learned-fit metadata path must differ from --output")
+    if learned_fit_path and "consistency" not in workloads:
+        raise ValueError("--save-learned-fit requires the consistency workload")
+    if learned_fit_path and args.consistency_map != "percentile":
+        raise ValueError("--save-learned-fit requires --consistency-map percentile")
+    learned_fit_target_limit = getattr(args, "learned_fit_target_limit", None)
+    if learned_fit_target_limit is not None and not learned_fit_path:
+        raise ValueError("--learned-fit-target-limit requires --save-learned-fit")
+    learned_target_indices = getattr(args, "learned_target_indices", None)
+    if learned_target_indices is not None and not learned_fit_path:
+        raise ValueError("--learned-target-indices requires --save-learned-fit")
+    if learned_fit_target_limit is not None and learned_target_indices is not None:
+        raise ValueError(
+            "--learned-fit-target-limit and --learned-target-indices are mutually exclusive"
+        )
+    if not learned_fit_path and (
+        getattr(args, "learned_bootstrap_index", 0) != 0
+        or getattr(args, "learned_fold_index", 0) != 0
+    ):
+        raise ValueError("learned cell selectors require --save-learned-fit")
+
+
+def _percentile_extras(args, correlation_dtype=None):
     extras = {}
     batch_size = getattr(args, "correlation_target_batch_size", None)
     if batch_size is not None:
@@ -644,9 +754,9 @@ def _percentile_extras(args):
     workspace = getattr(args, "ridge_workspace_bytes", None)
     if workspace is not None:
         extras["ridge_workspace_bytes"] = workspace
-    correlation_dtype = getattr(args, "correlation_dtype", None)
+    correlation_dtype = getattr(args, "correlation_dtype", None) or correlation_dtype
     if correlation_dtype is not None:
-        extras["correlation_dtype"] = correlation_dtype
+        extras["correlation_dtype"] = _dtype_name(correlation_dtype)
     max_batch_size = getattr(args, "ridge_max_batch_size", None)
     if max_batch_size is not None:
         extras["ridge_max_batch_size"] = (
@@ -712,14 +822,27 @@ def make_correlated_data(config, seed, dtype):
     return source.astype(dtype), target.astype(dtype)
 
 
+def _file_sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def _path_record(path):
     path = Path(path).resolve()
     stat = path.stat()
-    return {
+    record = {
         "path": str(path),
         "size_bytes": int(stat.st_size),
         "mtime_ns": int(stat.st_mtime_ns),
     }
+    if stat.st_size <= PROVENANCE_HASH_LIMIT_BYTES:
+        record.update({"sha256": _file_sha256(path), "sha256_scope": "full_file"})
+    else:
+        record.update({"sha256": None, "sha256_scope": "omitted_size_limit"})
+    return record
 
 
 def _dandiset_record(root):
@@ -826,7 +949,10 @@ def _event_files(root, fly_id, direction, events_dir=None):
         seen.add(key)
         candidates.append(
             {
-                "window": base / "event_tensors" / "short" / f"{fly_id}_{direction}.npz",
+                "window": base
+                / "event_tensors"
+                / "short"
+                / f"{fly_id}_{direction}.npz",
                 "bouts": base / "events" / f"{fly_id}_turn_bouts.csv",
             }
         )
@@ -870,7 +996,9 @@ def _load_events(root, fly_id, direction, event_source, events_dir=None):
     with np.load(str(window_path), allow_pickle=False) as window:
         files = set(window.files)
         if "relative_times" not in files and "event_times" not in files:
-            raise ValueError(f"event window is missing event_times/relative_times: {window_path}")
+            raise ValueError(
+                f"event window is missing event_times/relative_times: {window_path}"
+            )
         relative_times = (
             np.asarray(window["relative_times"], dtype=np.float64)
             if "relative_times" in files
@@ -936,7 +1064,37 @@ def _region_shape(roi_h5, fly_id, roi_names):
     return shapes
 
 
-def _target_indices(total, limit):
+def _parse_target_indices(value):
+    try:
+        indices = tuple(int(item) for item in value.split(","))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "target indices must be comma-separated integers"
+        ) from error
+    if not indices or any(index < 0 for index in indices):
+        raise argparse.ArgumentTypeError("target indices must be non-negative")
+    if any(
+        left >= right
+        for left, right in zip(  # noqa: RUF007 -- Python 3.6 support
+            indices, indices[1:]
+        )
+    ):
+        raise argparse.ArgumentTypeError("target indices must be sorted and unique")
+    return indices
+
+
+def _target_indices(total, limit, explicit_indices=None):
+    if limit is not None and explicit_indices is not None:
+        raise ValueError("target limit and target indices are mutually exclusive")
+    if explicit_indices is not None:
+        selected = np.asarray(explicit_indices, dtype=np.int64)
+        if selected.ndim != 1 or selected.size < 1:
+            raise ValueError("target indices must be a non-empty vector")
+        if selected[0] < 0 or selected[-1] >= total:
+            raise ValueError(f"target index must be between 0 and {total - 1}")
+        if not np.all(np.diff(selected) > 0):
+            raise ValueError("target indices must be sorted and unique")
+        return selected, selected.tolist()
     if limit is None or limit == total:
         return np.arange(total, dtype=np.int64), None
     if limit < 1 or limit > total:
@@ -1061,6 +1219,7 @@ def load_fly_data(
     event_source,
     dtype,
     target_limit=None,
+    target_indices=None,
     events_dir=None,
 ):
     started = time.perf_counter()
@@ -1087,7 +1246,7 @@ def load_fly_data(
     target_shapes = _region_shape(roi_h5, target_fly, roi_names)
     full_target_count = sum(shape[2] for shape in target_shapes)
     selected_targets, selected_target_list = _target_indices(
-        full_target_count, target_limit
+        full_target_count, target_limit, target_indices
     )
 
     source, source_shapes, source_interpolation = _interpolate_region(
@@ -1134,7 +1293,13 @@ def load_fly_data(
             "is_slice": selected_target_list is not None,
             "full_count": full_target_count,
             "selected_count": int(selected_targets.size),
-            "strategy": "evenly_spaced" if selected_target_list is not None else "all",
+            "strategy": (
+                "explicit"
+                if target_indices is not None
+                else "evenly_spaced"
+                if selected_target_list is not None
+                else "all"
+            ),
             "indices": selected_target_list,
         },
         "interpolation": "linear with endpoint clamping",
@@ -1191,6 +1356,32 @@ def make_train_test_splits(strategy, num_stimuli, num_splits, train_frac, seed):
     ]
 
 
+def _validate_fold_index(fold_index, num_splits):
+    if fold_index is not None and not 0 <= fold_index < num_splits:
+        raise ValueError(f"fold index must be between 0 and {num_splits - 1}")
+
+
+def _validate_learned_cell(bootstrap_index, fold_index, config):
+    if not 0 <= bootstrap_index < config["bootstrap_iters"]:
+        raise ValueError(
+            "learned bootstrap index must be between 0 and "
+            f"{config['bootstrap_iters'] - 1}"
+        )
+    if not 0 <= fold_index < config["splits"]:
+        raise ValueError(
+            f"learned fold index must be between 0 and {config['splits'] - 1}"
+        )
+
+
+def _select_folds(splits, fold_index):
+    _validate_fold_index(fold_index, len(splits))
+    if fold_index is None:
+        indices = list(range(len(splits)))
+    else:
+        indices = [fold_index]
+    return [splits[index] for index in indices], indices
+
+
 def _averaged_source(source):
     if source.ndim == 3:
         return source.mean(axis=0)
@@ -1198,16 +1389,61 @@ def _averaged_source(source):
 
 
 def _array_summary(array):
-    return {
+    array = np.asarray(array)
+    summary = {
         "shape": list(array.shape),
         "dtype": str(array.dtype),
         "bytes": int(array.nbytes),
     }
+    if array.nbytes <= PROVENANCE_HASH_LIMIT_BYTES:
+        contiguous = np.ascontiguousarray(array)
+        summary.update(
+            {
+                "sha256": hashlib.sha256(contiguous.view(np.uint8)).hexdigest(),
+                "sha256_scope": "full_array_bytes",
+            }
+        )
+    else:
+        summary.update({"sha256": None, "sha256_scope": "omitted_size_limit"})
+    return summary
+
+
+def _attribute_dtype(objects, attribute):
+    dtypes = set()
+    for obj in objects:
+        value = getattr(obj, attribute, None)
+        if value is not None:
+            dtypes.add(str(np.asarray(value).dtype))
+    dtypes = sorted(dtypes)
+    if not dtypes:
+        return None
+    return dtypes[0] if len(dtypes) == 1 else dtypes
+
+
+def _ridge_dtype_report(mapper):
+    direct = getattr(mapper, "_mapper", None)
+    models = [direct] if direct is not None else list(getattr(mapper, "_mappers", []))
+    return {
+        "coefficient": _attribute_dtype(models, "coef_"),
+        "intercept": _attribute_dtype(models, "intercept_"),
+    }
+
+
+def _metric_dtype_report(result):
+    return {
+        split: {
+            name: str(np.asarray(values).dtype)
+            for name, values in sorted(result[split].items())
+        }
+        for split in ("train", "test")
+    }
 
 
 def _prediction_summary(prediction):
+    prediction = np.asarray(prediction)
     return {
         "shape": list(prediction.shape),
+        "dtype": str(prediction.dtype),
         "checksum": float(np.asarray(prediction, dtype=np.float64).sum()),
         "mean": float(np.asarray(prediction, dtype=np.float64).mean()),
         "std": float(np.asarray(prediction, dtype=np.float64).std()),
@@ -1305,6 +1541,7 @@ def benchmark_ridge(
         _, fit_seconds = _seconds(
             lambda: mapper.fit(X_train, Y_train), effective_backend
         )
+        mapper_backend = _effective_mapper_backend(mapper, effective_backend)
         prediction, predict_seconds = _seconds(
             lambda: mapper.predict(X_test), effective_backend
         )
@@ -1312,6 +1549,8 @@ def benchmark_ridge(
     finally:
         resources = monitor.stop()
     return {
+        "backend_requested": backend,
+        "backend_effective": mapper_backend,
         "fit_seconds": fit_seconds,
         "predict_seconds": predict_seconds,
         "total_seconds": total_seconds,
@@ -1321,6 +1560,12 @@ def benchmark_ridge(
         "number_of_targets": int(Y_train.shape[1]),
         "ridge_parameters": dict(regression_kwargs),
         "prediction": _prediction_summary(prediction),
+        "dtypes": {
+            "input_source": str(np.asarray(X_train).dtype),
+            "input_target": str(np.asarray(Y_train).dtype),
+            "ridge": _ridge_dtype_report(mapper),
+            "prediction": str(np.asarray(prediction).dtype),
+        },
         "resources": resources,
     }
 
@@ -1356,6 +1601,7 @@ def benchmark_percentile(
         _, fit_seconds = _seconds(
             lambda: mapper.fit(X_train, Y_train), effective_backend
         )
+        mapper_backend = _effective_mapper_backend(mapper, effective_backend)
         mapper.benchmark_phase = None
         prediction, predict_seconds = _seconds(
             lambda: mapper.predict(X_test), effective_backend
@@ -1366,6 +1612,8 @@ def benchmark_percentile(
     preprocessing_seconds = mapper.correlation_and_source_selection_seconds
     ridge_fit = max(0.0, fit_seconds - preprocessing_seconds)
     result = {
+        "backend_requested": backend,
+        "backend_effective": mapper_backend,
         "correlation_and_source_selection_seconds": preprocessing_seconds,
         "ridge_fit_seconds": ridge_fit,
         "predict_seconds": predict_seconds,
@@ -1380,6 +1628,17 @@ def benchmark_percentile(
         "percentile": percentile,
         "ridge_parameters": dict(regression_kwargs),
         "prediction": _prediction_summary(prediction),
+        "dtypes": {
+            "input_source": str(np.asarray(X_train).dtype),
+            "input_target": str(np.asarray(Y_train).dtype),
+            "correlation": (
+                _dtype_name(mapper._correlation_dtype)
+                if mapper_backend == "cuda" and mapper._correlation_dtype is not None
+                else str(np.result_type(X_train, Y_train))
+            ),
+            "ridge": _ridge_dtype_report(mapper),
+            "prediction": str(np.asarray(prediction).dtype),
+        },
         "resources": resources,
     }
     result.update(_selected_source_report(mapper._num_source_units))
@@ -1388,16 +1647,123 @@ def benchmark_percentile(
     return result
 
 
-def _save_precision_metrics(path, result):
+def _save_precision_metrics(path, result, owner_path):
     payload = {}
     for split in ("train", "test"):
         block = result[split]
         for name, values in block.items():
-            payload["{}_{}".format(split, name)] = np.asarray(values)
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(path, **payload)
-    return str(path)
+            payload[f"{split}_{name}"] = np.asarray(values)
+    atomic_savez(path, payload)
+    return artifact_record(owner_path, path)
+
+
+def _precision_cell_metrics(
+    result,
+    bootstrap_index=0,
+    fold_position=0,
+    target_positions=None,
+):
+    if target_positions is None:
+        target_positions = slice(None)
+    metrics = {"train": {}, "test": {}}
+    for split, split_metrics in metrics.items():
+        for name in CONSISTENCY_METRICS:
+            values = np.asarray(result[split][name])
+            if values.ndim != 3 or values.shape[0] < 1 or values.shape[1] < 1:
+                raise ValueError(
+                    "consistency result cannot provide precision cell metrics"
+                )
+            if bootstrap_index >= values.shape[0] or fold_position >= values.shape[1]:
+                raise ValueError("requested precision metric cell is unavailable")
+            split_metrics[name] = values[
+                bootstrap_index, fold_position, target_positions
+            ]
+    return metrics
+
+
+def _precision_trial_views(source, target, seed):
+    source_full = generic_trial_avg(source) if source.ndim == 3 else source
+    source_half_1, source_half_2 = get_splithalves(source, seed=seed)
+    target_full = generic_trial_avg(target)
+    target_half_1, target_half_2 = get_splithalves(target, seed=seed)
+    return OrderedDict(
+        (
+            ("full", (source_full, target_full)),
+            ("half_1", (source_half_1, target_half_1)),
+            ("half_2", (source_half_2, target_half_2)),
+        )
+    )
+
+
+def _save_learned_fit_diagnostic(
+    path,
+    owner_path,
+    source,
+    target,
+    split,
+    seed,
+    mapper_options,
+    effective_backend,
+    metrics,
+    target_indices,
+    metadata,
+):
+    diagnostic_options = dict(mapper_options)
+    diagnostic_options["store_correlations"] = True
+    train_indices = np.asarray(split["train"], dtype=np.int64)
+    test_indices = np.asarray(split["test"], dtype=np.int64)
+    fits = OrderedDict()
+    role_dtypes = {}
+    for role, (role_source, role_target) in _precision_trial_views(
+        source, target, seed
+    ).items():
+        mapper = PipelineNeuralMap(map_type="percentile", map_kwargs=diagnostic_options)
+        X_train = role_source[train_indices]
+        X_test = role_source[test_indices]
+        Y_train = role_target[train_indices]
+        Y_test = role_target[test_indices]
+        mapper.fit(X_train, Y_train)
+        fitted = mapper.map
+        _effective_mapper_backend(fitted, effective_backend)
+        fits[role] = {
+            "mapper": mapper,
+            "X_train": X_train,
+            "X_test": X_test,
+            "Y_train": Y_train,
+            "Y_test": Y_test,
+        }
+        role_dtypes[role] = {
+            "input_source": str(np.asarray(X_train).dtype),
+            "input_target": str(np.asarray(Y_train).dtype),
+            "correlation": str(np.asarray(fitted._corrs).dtype),
+            "ridge": _ridge_dtype_report(fitted),
+        }
+
+    diagnostic_metadata = dict(metadata)
+    diagnostic_dtypes = dict(diagnostic_metadata["dtypes"])
+    diagnostic_dtypes.update(
+        {
+            "learned_fit": role_dtypes,
+            "metrics": {
+                split_name: {
+                    name: str(np.asarray(values).dtype)
+                    for name, values in split_metrics.items()
+                }
+                for split_name, split_metrics in metrics.items()
+            },
+        }
+    )
+    diagnostic_metadata["dtypes"] = diagnostic_dtypes
+    return save_precision_diagnostic(
+        path,
+        fits,
+        metrics,
+        target_indices,
+        train_indices,
+        test_indices,
+        diagnostic_metadata,
+        owner_path=owner_path,
+    )
 
 
 def benchmark_consistency(
@@ -1417,6 +1783,13 @@ def benchmark_consistency(
     extras=None,
     warmup=False,
     precision_metrics_path=None,
+    precision_owner_path=None,
+    learned_fit_path=None,
+    learned_fit_target_indices=None,
+    learned_fit_target_positions=None,
+    learned_bootstrap_index=0,
+    learned_fold_position=0,
+    learned_fit_metadata=None,
 ):
     if consistency_map == "ridge":
         mapper_options = _mapper_options(
@@ -1470,6 +1843,8 @@ def benchmark_consistency(
     primary = summaries["test"]["r_xy_n_sb"]
     metric = np.asarray(result["test"]["r_xy_n_sb"])
     payload = {
+        "backend_requested": backend,
+        "backend_effective": effective_backend,
         "total_seconds": total_seconds,
         "bootstrap_iterations": bootstrap_iters,
         "train_test_splits": len(splits),
@@ -1481,6 +1856,28 @@ def benchmark_consistency(
         "finite_result_fraction": primary["global"]["finite_fraction"],
         "mean_test_r_xy_n_sb": primary["global"]["mean"],
         "ridge_parameters": dict(regression_kwargs),
+        "selection_cutoff_tolerance": {
+            "epsilon_multiplier": neural_backends.CORRELATION_CUTOFF_EPS_MULTIPLIER,
+            "scale": "max(1, abs(percentile_threshold))",
+        },
+        "dtypes": {
+            "input_source": str(np.asarray(source).dtype),
+            "input_target": str(np.asarray(target).dtype),
+            "correlation": (
+                (
+                    _dtype_name(extras["correlation_dtype"])
+                    if effective_backend == "cuda"
+                    else str(np.result_type(source, target))
+                )
+                if consistency_map == "percentile"
+                and extras is not None
+                and "correlation_dtype" in extras
+                else None
+            ),
+            "ridge": {"coefficient": None, "intercept": None},
+            "prediction": None,
+            "metric": _metric_dtype_report(result),
+        },
         "resources": resources,
         "phase_seconds": dict(phase_times),
         "warmup": bool(warmup),
@@ -1488,19 +1885,55 @@ def benchmark_consistency(
     report = neural_backends.last_cuda_batch_report()
     if report is not None:
         payload["cuda_batching"] = report
+    if learned_fit_path:
+        if (
+            learned_fit_metadata is None
+            or learned_fit_target_indices is None
+            or learned_fit_target_positions is None
+        ):
+            raise ValueError("learned-fit diagnostics require provenance metadata")
+        diagnostic_target = target[..., learned_fit_target_positions]
+        diagnostic_seed = seed + learned_bootstrap_index
+        payload["learned_fit"] = _save_learned_fit_diagnostic(
+            learned_fit_path,
+            precision_owner_path,
+            source,
+            diagnostic_target,
+            splits[learned_fold_position],
+            diagnostic_seed,
+            mapper_options,
+            effective_backend,
+            _precision_cell_metrics(
+                result,
+                bootstrap_index=learned_bootstrap_index,
+                fold_position=learned_fold_position,
+                target_positions=learned_fit_target_positions,
+            ),
+            learned_fit_target_indices,
+            learned_fit_metadata,
+        )
     if precision_metrics_path:
-        payload["precision_metrics_file"] = _save_precision_metrics(
-            precision_metrics_path, result
+        payload["precision_metrics"] = _save_precision_metrics(
+            precision_metrics_path, result, precision_owner_path
         )
     return payload
 
 
 def benchmark_transfers(
-    host_array, effective_backend, monitor_interval, gpu_index, repeats
+    host_array,
+    requested_backend,
+    effective_backend,
+    monitor_interval,
+    gpu_index,
+    repeats,
 ):
     summary = {
+        "backend_requested": requested_backend,
+        "backend_effective": effective_backend,
         "measured": effective_backend == "cuda",
         "bytes_per_direction": int(host_array.nbytes),
+        "dtype": str(np.asarray(host_array).dtype),
+        "dtypes": {"input_source": str(np.asarray(host_array).dtype)},
         "repeats": repeats,
     }
     if effective_backend != "cuda":
@@ -1582,29 +2015,9 @@ def _optional_library_versions():
 
 def _git_metadata():
     root = Path(__file__).resolve().parents[1]
-
-    def git_output(*arguments):
-        try:
-            completed = subprocess.run(  # noqa: UP022 -- Python 3.6 support
-                ["git", "-C", str(root)] + list(arguments),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,  # noqa: UP021 -- Python 3.6 support
-                check=False,
-            )
-        except OSError:
-            return None
-        if completed.returncode != 0:
-            return None
-        return completed.stdout.strip()
-
-    commit = git_output("rev-parse", "HEAD")
-    status = git_output("status", "--porcelain")
-    return {
-        "root": str(root),
-        "commit": commit,
-        "dirty": bool(status) if status is not None else None,
-    }
+    identity = repository_identity(root)
+    identity["root"] = str(root)
+    return identity
 
 
 def _metadata(args, cuda_probe):
@@ -1807,6 +2220,123 @@ def _validate_config(config, synthetic):
         raise ValueError("percentile must be between 0 and 100")
 
 
+def _dataset_target_indices(dataset):
+    count = int(dataset["target"]["shape"][-1])
+    provenance = dataset.get("provenance") or {}
+    selection = provenance.get("target_selection") or {}
+    indices = selection.get("indices")
+    if indices is None:
+        return np.arange(count, dtype=np.int64)
+    indices = np.asarray(indices, dtype=np.int64)
+    if indices.shape != (count,):
+        raise ValueError("target-selection provenance does not match target data")
+    return indices
+
+
+def _learned_fit_target_selection(dataset, target_limit, explicit_indices=None):
+    target_indices = _dataset_target_indices(dataset)
+    if target_limit is not None and explicit_indices is not None:
+        raise ValueError(
+            "learned target limit and learned target indices are mutually exclusive"
+        )
+    if explicit_indices is None:
+        positions, _ = _target_indices(target_indices.size, target_limit)
+        strategy = "all" if positions.size == target_indices.size else "evenly_spaced"
+    else:
+        selected_ids = np.asarray(explicit_indices, dtype=np.int64)
+        if selected_ids.ndim != 1 or selected_ids.size < 1:
+            raise ValueError("learned target indices must be a non-empty vector")
+        if selected_ids[0] < 0 or not np.all(np.diff(selected_ids) > 0):
+            raise ValueError("learned target indices must be sorted and unique")
+        positions = np.searchsorted(target_indices, selected_ids)
+        valid = positions < target_indices.size
+        valid[valid] &= target_indices[positions[valid]] == selected_ids[valid]
+        if not valid.all():
+            missing = selected_ids[~valid]
+            raise ValueError(
+                "learned target indices are not in the main target selection: "
+                + ", ".join(str(value) for value in missing)
+            )
+        strategy = "explicit"
+    selected = target_indices[positions]
+    selection = {
+        "strategy": strategy,
+        "full_target_count": int(target_indices.size),
+        "selected_target_count": int(positions.size),
+        "positions": positions.tolist(),
+        "original_target_ids": selected.tolist(),
+    }
+    return positions, selected, selection
+
+
+def _learned_fit_dataset(dataset, target_selection):
+    learned_dataset = copy.deepcopy(dataset)
+    provenance = learned_dataset.get("provenance")
+    if isinstance(provenance, dict):
+        provenance.pop("preparation_seconds", None)
+    learned_dataset["diagnostic_target_selection"] = dict(target_selection)
+    return learned_dataset
+
+
+def _learned_fit_provenance(
+    args,
+    result,
+    regression_kwargs,
+    effective_backend,
+    percentile_extras,
+    bootstrap_index,
+    fold_index,
+    target_selection,
+):
+    effective_dtypes = result["dtypes"]["effective"]
+    return {
+        "configuration": {
+            "suite": result["suite"],
+            "workloads": list(result["workloads"]),
+            "config": dict(result["config"]),
+            "metric": "pearsonr",
+            "mapping": {
+                "map_type": "percentile",
+                "percentile": result["config"]["percentile"],
+                "identity": False,
+                "regression_type": "Ridge",
+                "regression_kwargs": dict(regression_kwargs),
+                "selection_cutoff_tolerance": {
+                    "epsilon_multiplier": (
+                        neural_backends.CORRELATION_CUTOFF_EPS_MULTIPLIER
+                    ),
+                    "scale": "max(1, abs(percentile_threshold))",
+                },
+            },
+        },
+        "dataset": _learned_fit_dataset(result["dataset"], target_selection),
+        "seed": {
+            "bootstrap_start": args.seed,
+            "bootstrap": args.seed + bootstrap_index,
+            "split": args.split_seed,
+        },
+        "bootstrap_index": bootstrap_index,
+        "fold_index": fold_index,
+        "dtypes": {
+            "requested": dict(result["dtypes"]["requested"]),
+            "effective": {
+                "preparation": dict(effective_dtypes["preparation"]),
+                "mapper_input": dict(effective_dtypes["mapper_input"]),
+            },
+        },
+        "backend_requested": args.backend,
+        "backend_effective": effective_backend,
+        "repository": result["metadata"]["repository"],
+        "execution": {
+            "workers": args.workers,
+            "gpu_index": args.gpu_index,
+            "warmup": bool(getattr(args, "warmup", False)),
+            "store_correlations": True,
+            "percentile_options": dict(percentile_extras),
+        },
+    }
+
+
 def run_benchmarks(args):
     if getattr(args, "inventory_only", False):
         return {
@@ -1815,51 +2345,18 @@ def run_benchmarks(args):
             "metadata": _metadata(args, _cuda_probe(args.gpu_index)),
         }
     config = _suite_config(args)
-    dtype = np.dtype(args.dtype)
+    requested_fold_index = getattr(args, "fold_index", None)
+    _validate_fold_index(requested_fold_index, config["splits"])
+    learned_bootstrap_index = getattr(args, "learned_bootstrap_index", 0)
+    learned_fold_index = getattr(args, "learned_fold_index", 0)
+    _validate_learned_cell(learned_bootstrap_index, learned_fold_index, config)
+    precision = _precision_plan(args)
     if args.fixture and args.fly_data_root:
         raise ValueError("--fixture and --fly-data-root are mutually exclusive")
     if args.target_limit is not None and not args.fly_data_root:
         raise ValueError("--target-limit requires --fly-data-root")
-
-    data_provenance = None
-    if args.fly_data_root:
-        if args.region not in REGION_ROIS:
-            raise ValueError(f"unsupported region: {args.region}")
-        source, target, data_provenance = load_fly_data(
-            args.fly_data_root,
-            args.source_fly,
-            args.target_fly,
-            args.direction,
-            args.region,
-            args.event_source,
-            dtype,
-            target_limit=args.target_limit,
-            events_dir=getattr(args, "events_dir", None),
-        )
-        data_origin = "brezovec_fly"
-    elif args.fixture:
-        source, target = load_fixture(args.fixture, dtype)
-        data_origin = "fixture"
-        data_provenance = {"file": _path_record(args.fixture)}
-    else:
-        _validate_config(config, synthetic=True)
-        source, target = make_correlated_data(config, args.seed, dtype)
-        data_origin = "correlated_synthetic"
-    compute_dtype = getattr(args, "compute_dtype", None)
-    if compute_dtype is not None and np.dtype(compute_dtype) != source.dtype:
-        source = np.asarray(source, dtype=compute_dtype)
-        target = np.asarray(target, dtype=compute_dtype)
-    config.update(
-        {
-            "stimuli": target.shape[1],
-            "sources": source.shape[-1],
-            "targets": target.shape[-1],
-            "trials": target.shape[0],
-            "split_strategy": args.split_strategy,
-            "consistency_map": args.consistency_map,
-        }
-    )
-    _validate_config(config, synthetic=data_origin == "correlated_synthetic")
+    if getattr(args, "target_indices", None) is not None and not args.fly_data_root:
+        raise ValueError("--target-indices requires --fly-data-root")
 
     workloads = []
     for workload in args.workloads:
@@ -1869,6 +2366,16 @@ def run_benchmarks(args):
             workloads.append(workload)
     if not workloads:
         raise ValueError("at least one workload is required")
+    _validate_artifact_options(args, workloads)
+    if (
+        getattr(args, "save_learned_fit", None)
+        and requested_fold_index is not None
+        and learned_fold_index != requested_fold_index
+    ):
+        raise ValueError(
+            "--learned-fold-index must match --fold-index when both are used"
+        )
+    percentile_extras = _percentile_extras(args, precision["correlation"])
 
     regression_kwargs = {
         "alpha": args.alpha,
@@ -1884,6 +2391,7 @@ def run_benchmarks(args):
         regression_kwargs,
         args.gpu_index,
     )
+    _verify_explicit_backend(args.backend, workloads, effective_backends)
     if (
         "consistency" in workloads
         and effective_backends["consistency"] == "cuda"
@@ -1901,7 +2409,6 @@ def run_benchmarks(args):
             "consistency" in cuda_workloads and args.consistency_map == "percentile"
         )
         _select_cuda_device(args.gpu_index, require_torch)
-
     cuda_probe = (
         _cuda_probe(args.gpu_index)
         if args.backend != "cpu"
@@ -1911,17 +2418,69 @@ def run_benchmarks(args):
             "reason": "not probed for CPU benchmark",
         }
     )
+
+    data_provenance = None
+    if args.fly_data_root:
+        if args.region not in REGION_ROIS:
+            raise ValueError(f"unsupported region: {args.region}")
+        source, target, data_provenance = load_fly_data(
+            args.fly_data_root,
+            args.source_fly,
+            args.target_fly,
+            args.direction,
+            args.region,
+            args.event_source,
+            precision["preparation"],
+            target_limit=args.target_limit,
+            target_indices=getattr(args, "target_indices", None),
+            events_dir=getattr(args, "events_dir", None),
+        )
+        data_origin = "brezovec_fly"
+    elif args.fixture:
+        source, target = load_fixture(args.fixture, precision["preparation"])
+        data_origin = "fixture"
+        data_provenance = {"file": _path_record(args.fixture)}
+    else:
+        _validate_config(config, synthetic=True)
+        source, target = make_correlated_data(
+            config, args.seed, precision["preparation"]
+        )
+        data_origin = "correlated_synthetic"
+    preparation_dtypes = {
+        "source": str(source.dtype),
+        "target": str(target.dtype),
+    }
+    if precision["mapper_input"] != source.dtype:
+        source = np.asarray(source, dtype=precision["mapper_input"])
+        target = np.asarray(target, dtype=precision["mapper_input"])
+    config.update(
+        {
+            "stimuli": target.shape[1],
+            "sources": source.shape[-1],
+            "targets": target.shape[-1],
+            "trials": target.shape[0],
+            "split_strategy": args.split_strategy,
+            "consistency_map": args.consistency_map,
+        }
+    )
+    _validate_config(config, synthetic=data_origin == "correlated_synthetic")
     backend_values = set(effective_backends.values())
     effective_backend = (
         next(iter(backend_values)) if len(backend_values) == 1 else "mixed"
     )
 
-    splits = make_train_test_splits(
+    generated_splits = make_train_test_splits(
         args.split_strategy,
         config["stimuli"],
         config["splits"],
         config["train_frac"],
         args.split_seed,
+    )
+    splits, fold_indices = _select_folds(generated_splits, requested_fold_index)
+    learned_fold_position = (
+        fold_indices.index(learned_fold_index)
+        if learned_fold_index in fold_indices
+        else None
     )
     first_split = splits[0]
     source_average = None
@@ -1942,6 +2501,24 @@ def run_benchmarks(args):
         "backend_requested": args.backend,
         "backend_effective": effective_backend,
         "backend_effective_by_workload": effective_backends,
+        "dtypes": {
+            "requested": {
+                "preparation": _dtype_name(precision["preparation"]),
+                "mapper_input": _dtype_name(precision["mapper_input"]),
+                "correlation": _dtype_name(precision["correlation"]),
+                "compute_override_explicit": precision["compute_explicit"],
+                "correlation_override_explicit": precision["correlation_explicit"],
+                "mixed_precision_allowed": precision["allow_mixed_precision"],
+            },
+            "effective": {
+                "preparation": preparation_dtypes,
+                "mapper_input": {
+                    "source": str(source.dtype),
+                    "target": str(target.dtype),
+                },
+                "by_workload": {},
+            },
+        },
         "seed": args.seed,
         "split_seed": args.split_seed,
         "workloads": workloads,
@@ -1954,12 +2531,14 @@ def run_benchmarks(args):
             "source": _array_summary(source),
             "target": _array_summary(target),
             "split_strategy": args.split_strategy,
+            "selected_fold_indices": fold_indices,
             "train_test_indices": [
                 {
+                    "fold_index": fold_index,
                     "train": split["train"].astype(int).tolist(),
                     "test": split["test"].astype(int).tolist(),
                 }
-                for split in splits
+                for fold_index, split in zip(fold_indices, splits)
             ],
             "standalone_train_samples": int(first_split["train"].size),
             "standalone_test_samples": int(first_split["test"].size),
@@ -1970,6 +2549,7 @@ def run_benchmarks(args):
         transfer_backend = effective_backends["transfer"]
         result["benchmarks"][WORKLOAD_KEYS["transfer"]] = benchmark_transfers(
             source_average,
+            args.backend,
             transfer_backend,
             args.monitor_interval,
             args.gpu_index,
@@ -1981,7 +2561,7 @@ def run_benchmarks(args):
             X_train,
             Y_train,
             X_test,
-            ridge_backend,
+            args.backend,
             ridge_backend,
             regression_kwargs,
             args.monitor_interval,
@@ -1993,21 +2573,49 @@ def run_benchmarks(args):
             X_train,
             Y_train,
             X_test,
-            percentile_backend,
+            args.backend,
             percentile_backend,
             regression_kwargs,
             config["percentile"],
             args.monitor_interval,
             args.gpu_index,
-            extras=_percentile_extras(args),
+            extras=percentile_extras,
         )
     if "consistency" in workloads:
         consistency_backend = effective_backends["consistency"]
+        learned_fit_path = getattr(args, "save_learned_fit", None)
+        learned_target_positions = None
+        learned_target_indices = None
+        learned_target_selection = None
+        if learned_fit_path:
+            (
+                learned_target_positions,
+                learned_target_indices,
+                learned_target_selection,
+            ) = _learned_fit_target_selection(
+                result["dataset"],
+                getattr(args, "learned_fit_target_limit", None),
+                getattr(args, "learned_target_indices", None),
+            )
+        learned_fit_metadata = (
+            _learned_fit_provenance(
+                args,
+                result,
+                regression_kwargs,
+                consistency_backend,
+                percentile_extras,
+                learned_bootstrap_index,
+                learned_fold_index,
+                learned_target_selection,
+            )
+            if learned_fit_path
+            else None
+        )
         result["benchmarks"][WORKLOAD_KEYS["consistency"]] = benchmark_consistency(
             source,
             target,
             splits,
-            consistency_backend,
+            args.backend,
             consistency_backend,
             regression_kwargs,
             config["bootstrap_iters"],
@@ -2017,10 +2625,21 @@ def run_benchmarks(args):
             args.gpu_index,
             args.consistency_map,
             config["percentile"],
-            extras=_percentile_extras(args),
+            extras=percentile_extras,
             warmup=getattr(args, "warmup", False),
             precision_metrics_path=getattr(args, "save_precision_artifacts", None),
+            precision_owner_path=args.output,
+            learned_fit_path=learned_fit_path,
+            learned_fit_target_indices=learned_target_indices,
+            learned_fit_target_positions=learned_target_positions,
+            learned_bootstrap_index=learned_bootstrap_index,
+            learned_fold_position=learned_fold_position or 0,
+            learned_fit_metadata=learned_fit_metadata,
         )
+    result["dtypes"]["effective"]["by_workload"] = {
+        name: payload.get("dtypes", {})
+        for name, payload in sorted(result["benchmarks"].items())
+    }
     result["metadata"]["process_peak_rss_bytes_at_end"] = _peak_rss_bytes()
     if args.reference_result:
         result["reference_comparison"] = _reference_comparison(
@@ -2034,7 +2653,7 @@ def build_parser():
         description="Benchmark Ridge, percentile mapping, and neural consistency."
     )
     parser.add_argument("--suite", choices=sorted(SUITES), default="smoke")
-    parser.add_argument("--backend", choices=("cpu", "cuda", "auto"), default="cpu")
+    parser.add_argument("--backend", choices=("cpu", "cuda"), default="cpu")
     parser.add_argument("--fixture", help="NPZ containing source and target arrays")
     parser.add_argument("--fly-data-root")
     parser.add_argument(
@@ -2050,7 +2669,17 @@ def build_parser():
     )
     parser.add_argument("--target-limit", type=int)
     parser.add_argument(
+        "--target-indices",
+        type=_parse_target_indices,
+        help="sorted comma-separated global target indices for fly data",
+    )
+    parser.add_argument(
         "--split-strategy", choices=("random", "blocked"), default="random"
+    )
+    parser.add_argument(
+        "--fold-index",
+        type=int,
+        help="run only this generated train/test fold",
     )
     parser.add_argument(
         "--consistency-map", choices=("ridge", "percentile"), default="ridge"
@@ -2089,14 +2718,35 @@ def build_parser():
     parser.add_argument(
         "--correlation-dtype",
         choices=("float32", "float64"),
-        help="CUDA correlation compute dtype; default is float32 hybrid",
+        help="correlation compute dtype; defaults to the mapper input dtype",
     )
     parser.add_argument(
         "--compute-dtype",
         choices=("float32", "float64"),
-        help="cast loaded arrays at the mapper boundary without changing data prep",
+        help="diagnostic mapper-input override; normally --dtype is authoritative",
+    )
+    parser.add_argument(
+        "--allow-mixed-precision",
+        action="store_true",
+        help="allow diagnostic dtype overrides that differ from --dtype",
     )
     parser.add_argument("--save-precision-artifacts")
+    parser.add_argument(
+        "--save-learned-fit",
+        help="NPZ path for one learned-fit diagnostic cell",
+    )
+    parser.add_argument(
+        "--learned-fit-target-limit",
+        type=int,
+        help="evenly spaced target count saved only in the learned-fit artifact",
+    )
+    parser.add_argument(
+        "--learned-target-indices",
+        type=_parse_target_indices,
+        help="sorted comma-separated global target IDs saved in the learned-fit artifact",
+    )
+    parser.add_argument("--learned-bootstrap-index", type=int, default=0)
+    parser.add_argument("--learned-fold-index", type=int, default=0)
     parser.add_argument("--inventory-only", action="store_true")
     parser.add_argument("--warmup", action="store_true")
     parser.add_argument("--stimuli", type=int)
@@ -2117,6 +2767,18 @@ def _validate_args(parser, args):
         parser.error("--target-limit must be positive")
     if args.target_limit is not None and not args.fly_data_root:
         parser.error("--target-limit requires --fly-data-root")
+    if args.target_indices is not None and not args.fly_data_root:
+        parser.error("--target-indices requires --fly-data-root")
+    if args.target_limit is not None and args.target_indices is not None:
+        parser.error("--target-limit and --target-indices are mutually exclusive")
+    if args.fold_index is not None and args.fold_index < 0:
+        parser.error("--fold-index cannot be negative")
+    if args.learned_fit_target_limit is not None and args.learned_fit_target_limit < 1:
+        parser.error("--learned-fit-target-limit must be positive")
+    if args.learned_bootstrap_index < 0:
+        parser.error("--learned-bootstrap-index cannot be negative")
+    if args.learned_fold_index < 0:
+        parser.error("--learned-fold-index cannot be negative")
     if args.workers == 0:
         parser.error("--workers cannot be zero")
     if args.monitor_interval <= 0:
@@ -2129,12 +2791,26 @@ def _validate_args(parser, args):
     if batch_size is not None and str(batch_size).lower() != "all":
         try:
             if int(batch_size) < 1:
-                parser.error("--correlation-target-batch-size must be positive or 'all'")
+                parser.error(
+                    "--correlation-target-batch-size must be positive or 'all'"
+                )
         except (TypeError, ValueError):
             parser.error("--correlation-target-batch-size must be an integer or 'all'")
     workspace = getattr(args, "ridge_workspace_bytes", None)
     if workspace is not None and workspace < 1:
         parser.error("--ridge-workspace-bytes must be positive")
+    try:
+        _precision_plan(args)
+        _validate_artifact_options(args, args.workloads)
+    except ValueError as error:
+        parser.error(str(error))
+
+
+def _write_result_json(output, result):
+    if output == "-":
+        print(json.dumps(result, indent=2, sort_keys=True, allow_nan=False))
+        return
+    atomic_write_json(output, result)
 
 
 def main(argv=None):
@@ -2145,13 +2821,7 @@ def main(argv=None):
         result = run_benchmarks(args)
     except (RuntimeError, ValueError) as error:
         parser.error(str(error))
-    rendered = json.dumps(result, indent=2, sort_keys=True, allow_nan=False)
-    if args.output == "-":
-        print(rendered)
-    else:
-        with open(args.output, "w") as stream:
-            stream.write(rendered)
-            stream.write("\n")
+    _write_result_json(args.output, result)
     return 0
 
 

@@ -4,7 +4,6 @@ import csv
 import os
 import shutil
 import subprocess
-import time
 from pathlib import Path
 
 
@@ -18,11 +17,11 @@ def _read_text(path):
 
 def _run(command, timeout=2):
     try:
-        completed = subprocess.run(
+        completed = subprocess.run(  # noqa: UP022 -- Python 3.6 support
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True,
+            universal_newlines=True,  # noqa: UP021 -- Python 3.6 support
             timeout=timeout,
             check=False,
         )
@@ -97,7 +96,7 @@ def parse_cuda_visible_devices(value):
         token = token.strip()
         if not token:
             continue
-        if token.startswith("GPU-") or token.startswith("MIG-"):
+        if token.startswith(("GPU-", "MIG-")):
             tokens.append(token)
         else:
             tokens.append(int(token))
@@ -116,9 +115,8 @@ def resolve_gpu_identity(compute_index, inventory=None, cuda_visible_devices=Non
     if visible:
         if compute_index >= len(visible):
             raise ValueError(
-                "compute GPU index {} is outside CUDA_VISIBLE_DEVICES={}".format(
-                    compute_index, visible
-                )
+                f"compute GPU index {compute_index} is outside "
+                f"CUDA_VISIBLE_DEVICES={visible}"
             )
         token = visible[compute_index]
         if isinstance(token, int):
@@ -136,9 +134,8 @@ def resolve_gpu_identity(compute_index, inventory=None, cuda_visible_devices=Non
     elif inventory:
         if compute_index >= len(inventory):
             raise ValueError(
-                "compute GPU index {} is unavailable; {} devices are visible".format(
-                    compute_index, len(inventory)
-                )
+                f"compute GPU index {compute_index} is unavailable; "
+                f"{len(inventory)} devices are visible"
             )
         uuid = inventory[compute_index]["uuid"]
         nvml_index = inventory[compute_index]["nvml_index"]
@@ -164,7 +161,9 @@ def resolve_gpu_identity(compute_index, inventory=None, cuda_visible_devices=Non
         "memory_total_bytes": matched.get("memory_total_bytes") if matched else None,
         "pci_bus_id": matched.get("pci_bus_id") if matched else None,
         "max_sm_clock_mhz": matched.get("max_sm_clock_mhz") if matched else None,
-        "max_memory_clock_mhz": matched.get("max_memory_clock_mhz") if matched else None,
+        "max_memory_clock_mhz": matched.get("max_memory_clock_mhz")
+        if matched
+        else None,
         "power_limit_watts": matched.get("power_limit_watts") if matched else None,
     }
     return identity
@@ -348,7 +347,9 @@ class GpuSampler:
                     process_memory += int(used)
             break
         sample = {
-            "device_memory_used_bytes": int(memory.used) if memory is not None else None,
+            "device_memory_used_bytes": int(memory.used)
+            if memory is not None
+            else None,
             "utilization_percent": float(utilization.gpu)
             if utilization is not None
             else None,
@@ -366,7 +367,7 @@ class GpuSampler:
 
     def _sample_nvidia_smi(self, pids):
         uuid = self.identity.get("uuid")
-        selector = ["--id={}".format(uuid or self.compute_index)]
+        selector = [f"--id={uuid or self.compute_index}"]
         output = _run(
             [
                 "nvidia-smi",
@@ -386,12 +387,8 @@ class GpuSampler:
                 sample = {
                     "device_memory_used_bytes": int(float(row[1]) * 1024 * 1024),
                     "utilization_percent": float(row[2]),
-                    "power_watts": None
-                    if row[3] in ("", "[N/A]")
-                    else float(row[3]),
-                    "temperature_c": None
-                    if row[4] in ("", "[N/A]")
-                    else float(row[4]),
+                    "power_watts": None if row[3] in ("", "[N/A]") else float(row[3]),
+                    "temperature_c": None if row[4] in ("", "[N/A]") else float(row[4]),
                     "sm_clock_mhz": None
                     if len(row) < 6 or row[5] in ("", "[N/A]")
                     else float(row[6 - 1]),
@@ -450,7 +447,9 @@ def summarize_gpu_samples(samples):
     return {
         "samples": len(samples),
         "mean_utilization_percent": _mean(utilization),
-        "p95_utilization_percent": _percentile(utilization, 95) if utilization else None,
+        "p95_utilization_percent": _percentile(utilization, 95)
+        if utilization
+        else None,
         "peak_utilization_percent": max(utilization) if utilization else None,
         "mean_device_memory_used_bytes": _mean(device_memory),
         "peak_device_memory_used_bytes": max(device_memory) if device_memory else None,
@@ -469,12 +468,12 @@ def summarize_gpu_samples(samples):
 
 
 def host_faults_and_swap(pid):
-    status = _read_text("/proc/{}/status".format(pid)) or ""
+    status = _read_text(f"/proc/{pid}/status") or ""
     vm_swap = None
     for line in status.splitlines():
         if line.startswith("VmSwap:"):
             vm_swap = int(line.split()[1]) * 1024
-    stat = _read_text("/proc/{}/stat".format(pid))
+    stat = _read_text(f"/proc/{pid}/stat")
     minflt = None
     majflt = None
     if stat:

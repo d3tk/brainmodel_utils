@@ -32,36 +32,10 @@ def _mapping_uses_cuda(map_kwargs):
     if not isinstance(map_kwargs, dict):
         return False
 
-    mapper_kwargs = map_kwargs.get("map_kwargs", {})
+    mapper_kwargs = map_kwargs.get("map_kwargs") or {}
     backend = mapper_kwargs.get("backend", "cpu")
-    if backend == "cuda":
-        return True
-    if backend != "auto":
-        return False
-
-    map_type = map_kwargs.get("map_type", "").lower()
-    if map_type == "sklinear":
-        return (
-            backends.resolve_backend(
-                "auto",
-                mapper_kwargs.get("regression_type", "Ridge"),
-                mapper_kwargs.get("regression_kwargs", {}),
-            )
-            == "cuda"
-        )
-    if map_type == "percentile":
-        if mapper_kwargs.get("identity", True):
-            return backends.resolve_torch_backend("auto") == "cuda"
-        return (
-            backends.resolve_backend(
-                "auto",
-                mapper_kwargs.get("regression_type", "Ridge"),
-                mapper_kwargs.get("regression_kwargs", {}),
-            )
-            == "cuda"
-            and backends.resolve_torch_backend("auto") == "cuda"
-        )
-    return False
+    backends.validate_backend(backend)
+    return backend == "cuda"
 
 
 def get_consistency_per_neuron(X, Y, X1, X2, Y1, Y2, metric="pearsonr"):

@@ -14,13 +14,13 @@ class SKLinearNeuralMap(nm.NeuralMapBase):
     def __init__(
         self,
         regression_type="Ridge",
-        regression_kwargs={},
+        regression_kwargs=None,
         weights_save_nm=None,
         backend="cpu",
     ):
         super().__init__()
         self._regression_type = regression_type
-        self._regression_kwargs = regression_kwargs
+        self._regression_kwargs = {} if regression_kwargs is None else regression_kwargs
         self._mapper = None
         self._weights_save_nm = weights_save_nm
         self._weights = None

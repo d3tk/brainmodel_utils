@@ -1,35 +1,36 @@
-import inspect
-
 import numpy as np
 
 from .profiling import phase
 
 __all__ = [
-    "can_batch_cuda_ridge",
-    "correlations_cuda",
-    "cuda_available",
+    "CORRELATION_CUTOFF_EPS_MULTIPLIER",
     "DEFAULT_CUDA_CORRELATION_TARGET_BATCH_SIZE",
     "DEFAULT_CUDA_RIDGE_MAX_BATCH_SIZE",
     "DEFAULT_CUDA_RIDGE_WORKSPACE_BYTES",
+    "can_batch_cuda_ridge",
+    "correlation_cutoff_tolerance",
+    "correlations_cuda",
+    "cuda_available",
     "fit_grouped_ridge_cuda",
     "last_cuda_batch_report",
     "make_regressor",
     "make_resolved_regressor",
     "resolve_backend",
-    "resolve_torch_backend",
     "resolve_correlation_target_batch_size",
     "resolve_ridge_max_batch_size",
+    "resolve_torch_backend",
     "set_last_cuda_batch_report",
     "torch_cuda_available",
     "validate_backend",
 ]
 
-_BACKENDS = {"auto", "cpu", "cuda"}
+_BACKENDS = {"cpu", "cuda"}
 _CUDA_RIDGE_KWARGS = {"alpha", "fit_intercept", "solver"}
-_CUDA_RIDGE_SOLVERS = {"auto", "svd"}
+_CUDA_RIDGE_SOLVERS = {"auto"}
 DEFAULT_CUDA_CORRELATION_TARGET_BATCH_SIZE = 512
 DEFAULT_CUDA_RIDGE_WORKSPACE_BYTES = 512 * 1024**2
 DEFAULT_CUDA_RIDGE_MAX_BATCH_SIZE = 1024
+CORRELATION_CUTOFF_EPS_MULTIPLIER = 8
 _CUDA_CORRELATION_TARGET_BATCH_SIZE = DEFAULT_CUDA_CORRELATION_TARGET_BATCH_SIZE
 LAST_CUDA_BATCH_REPORT = None
 
@@ -86,12 +87,6 @@ def validate_backend(backend):
     return backend
 
 
-def _load_cuml_ridge():
-    from cuml.linear_model import Ridge
-
-    return Ridge
-
-
 def _load_cupy():
     import cupy
 
@@ -106,7 +101,6 @@ def _load_torch():
 
 def cuda_available():
     try:
-        _load_cuml_ridge()
         cupy = _load_cupy()
         return cupy.cuda.runtime.getDeviceCount() > 0
     except (AttributeError, ImportError, OSError, RuntimeError):
@@ -140,28 +134,13 @@ def _ridge_config_error(regression_type, regression_kwargs):
         alpha = float(alpha)
     except (TypeError, ValueError):
         return "CUDA Ridge requires a numeric alpha."
-    if not np.isfinite(alpha) or alpha < 0:
-        return "CUDA Ridge requires a finite, non-negative alpha."
+    if not np.isfinite(alpha) or alpha <= 0:
+        return "CUDA Ridge requires a finite, positive alpha."
 
-    return None
+    fit_intercept = regression_kwargs.get("fit_intercept", True)
+    if not isinstance(fit_intercept, (bool, np.bool_)):
+        return "CUDA Ridge requires fit_intercept to be boolean."
 
-
-def _installed_ridge_config_error(regression_kwargs):
-    try:
-        parameters = inspect.signature(_load_cuml_ridge()).parameters
-    except (TypeError, ValueError):
-        return None
-
-    if any(
-        parameter.kind == inspect.Parameter.VAR_KEYWORD
-        for parameter in parameters.values()
-    ):
-        return None
-
-    unsupported = set(regression_kwargs) - set(parameters)
-    if unsupported:
-        names = ", ".join(sorted(unsupported))
-        return f"Installed cuML Ridge does not support regression kwargs: {names}."
     return None
 
 
@@ -172,25 +151,13 @@ def resolve_backend(backend, regression_type, regression_kwargs):
 
     config_error = _ridge_config_error(regression_type, regression_kwargs)
     if config_error is not None:
-        if backend == "cuda":
-            raise ValueError(config_error)
-        if regression_kwargs.get("solver", "auto") in (None, "eig"):
-            raise ValueError(config_error)
-        return "cpu"
+        raise ValueError(config_error)
 
     if not cuda_available():
-        if backend == "cuda":
-            raise RuntimeError(
-                "CUDA backend is unavailable; install a CUDA-enabled cuML stack "
-                "and ensure an NVIDIA GPU is visible."
-            )
-        return "cpu"
-
-    config_error = _installed_ridge_config_error(regression_kwargs)
-    if config_error is not None:
-        if backend == "cuda":
-            raise ValueError(config_error)
-        return "cpu"
+        raise RuntimeError(
+            "CUDA backend is unavailable; install CUDA-enabled CuPy "
+            "and ensure an NVIDIA GPU is visible."
+        )
 
     return "cuda"
 
@@ -201,81 +168,50 @@ def resolve_torch_backend(backend):
         return "cpu"
     if torch_cuda_available():
         return "cuda"
-    if backend == "cuda":
-        raise RuntimeError(
-            "CUDA percentile mapping is unavailable; install CUDA-enabled PyTorch "
-            "and ensure an NVIDIA GPU is visible."
-        )
-    return "cpu"
+    raise RuntimeError(
+        "CUDA percentile mapping is unavailable; install CUDA-enabled PyTorch "
+        "and ensure an NVIDIA GPU is visible."
+    )
 
 
-class _CuMLRidge:
+class _CudaRidge:
     def __init__(self, regression_kwargs):
-        self._ridge = _load_cuml_ridge()
-        self._regression_kwargs = regression_kwargs
-        self._estimators = None
+        self._regression_kwargs = dict(regression_kwargs)
 
     def fit(self, X, Y):
         cupy = _load_cupy()
         X_array = np.ascontiguousarray(np.asarray(X))
         Y_array = np.ascontiguousarray(np.asarray(Y))
+        if Y_array.ndim not in (1, 2):
+            raise ValueError("CUDA Ridge targets must be one- or two-dimensional.")
         dtype = _cuda_dtype(X_array, Y_array)
         X_device = cupy.ascontiguousarray(cupy.asarray(X_array, dtype=dtype))
-        Y_device = cupy.ascontiguousarray(cupy.asarray(Y_array, dtype=dtype))
+        Y_matrix = Y_array[:, np.newaxis] if Y_array.ndim == 1 else Y_array
+        Y_device = cupy.ascontiguousarray(cupy.asarray(Y_matrix, dtype=dtype))
         self._n_features = X_array.shape[1]
         self._target_ndim = Y_array.ndim
-        self._n_targets = 1 if Y_array.ndim == 1 else Y_array.shape[1]
-
-        if self._n_targets > 1 and can_batch_cuda_ridge(self._regression_kwargs):
-            weights, intercept, promoted = _solve_ridge(
-                cupy,
-                X_device,
-                Y_device,
-                float(self._regression_kwargs.get("alpha", 1.0)),
-                self._regression_kwargs.get("fit_intercept", True),
-            )
-            self.promoted_to_float64 = promoted
-            self._coef_device = weights.T
-            self._intercept_device = intercept.reshape(-1)
-            self.coef_ = cupy.asnumpy(self._coef_device)
-            self.intercept_ = self._normalize_intercept(
-                cupy.asnumpy(self._intercept_device)
-            )
-            self._estimators = None
-            self._estimator = None
-            return self
-
-        targets = (
-            [Y_device]
-            if Y_array.ndim == 1
-            else [
-                cupy.ascontiguousarray(Y_device[:, target_idx])
-                for target_idx in range(self._n_targets)
-            ]
+        self._n_targets = Y_matrix.shape[1]
+        weights, intercept, promoted = _solve_ridge(
+            cupy,
+            X_device,
+            Y_device,
+            float(self._regression_kwargs.get("alpha", 1.0)),
+            self._regression_kwargs.get("fit_intercept", True),
         )
-        self._estimators = [
-            self._ridge(output_type="numpy", **self._regression_kwargs)
-            for _ in range(self._n_targets)
-        ]
-        for estimator, target in zip(self._estimators, targets):
-            estimator.fit(X_device, target)
-
-        self._estimator = self._estimators[0]
-        coefficients = np.stack(
-            [np.asarray(estimator.coef_).reshape(-1) for estimator in self._estimators]
-        )
-        intercepts = np.asarray(
-            [
-                np.asarray(estimator.intercept_).reshape(-1)[0]
-                for estimator in self._estimators
-            ]
-        )
+        self.promoted_to_float64 = promoted
+        self.compute_dtype = np.dtype(dtype)
+        self._coef_device = weights.T
+        self._intercept_device = intercept.reshape(-1)
+        coefficients = cupy.asnumpy(self._coef_device)
+        intercepts = cupy.asnumpy(self._intercept_device)
         if self._n_targets == 1:
             coefficients = coefficients[0]
         if self._target_ndim == 1:
             intercepts = intercepts[0]
-        self.coef_ = self._normalize_coefficients(coefficients)
-        self.intercept_ = self._normalize_intercept(intercepts)
+        self.coef_ = coefficients
+        self.intercept_ = (
+            intercepts if self._regression_kwargs.get("fit_intercept", True) else 0.0
+        )
         return self
 
     def predict(self, X):
@@ -283,19 +219,12 @@ class _CuMLRidge:
         X_array = np.ascontiguousarray(np.asarray(X))
         dtype = _cuda_dtype(X_array, self.coef_)
         X_device = cupy.ascontiguousarray(cupy.asarray(X_array, dtype=dtype))
-        if self._estimators is None:
-            predictions = X_device @ self._coef_device.T
-            predictions += self._intercept_device
-            return cupy.asnumpy(predictions)
-        predictions = np.column_stack(
-            [
-                np.asarray(estimator.predict(X_device)).reshape(-1)
-                for estimator in self._estimators
-            ]
-        )
-        if self._n_targets == 1:
-            return predictions[:, 0]
-        return predictions
+        predictions = X_device @ self._coef_device.T
+        predictions += self._intercept_device
+        self.prediction_compute_dtype = np.dtype(predictions.dtype)
+        predictions = cupy.asnumpy(predictions)
+        self.prediction_output_dtype = predictions.dtype
+        return predictions[:, 0] if self._n_targets == 1 else predictions
 
     def score(self, X, Y, sample_weight=None):
         from sklearn.metrics import r2_score
@@ -307,30 +236,10 @@ class _CuMLRidge:
             multioutput="uniform_average",
         )
 
-    def _normalize_coefficients(self, coefficients):
-        coefficients = np.asarray(coefficients)
-        if self._n_targets == 1:
-            return coefficients.reshape(self._n_features)
-        if coefficients.shape == (self._n_targets, self._n_features):
-            return coefficients
-        if coefficients.shape == (self._n_features, self._n_targets):
-            return coefficients.T
-        raise RuntimeError(
-            f"Unexpected cuML Ridge coefficient shape {coefficients.shape}."
-        )
-
-    def _normalize_intercept(self, intercept):
-        if not self._regression_kwargs.get("fit_intercept", True):
-            return 0.0
-        intercept = np.asarray(intercept)
-        if self._target_ndim == 1:
-            return intercept.reshape(-1)[0]
-        return intercept.reshape(self._n_targets)
-
 
 class _FittedRidge:
     def __init__(self, coefficients, intercept):
-        self.coef_ = np.asarray(coefficients)
+        self.coef_ = np.asarray(coefficients).reshape(-1)
         self.intercept_ = np.asarray(intercept).reshape(1)
 
     def predict(self, X):
@@ -349,6 +258,9 @@ class _FittedRidge:
 class _GroupedRidge:
     def __init__(self, cupy, selections, models, dtype, batch_size):
         self._cupy = cupy
+        self.compute_dtype = np.dtype(dtype)
+        self.prediction_output_dtype = np.dtype(np.float64)
+        self.shared_design = False
         self._batches = []
         for start in range(0, len(models), batch_size):
             stop = min(start + batch_size, len(models))
@@ -361,7 +273,7 @@ class _GroupedRidge:
                 zip(batch_selections, models[start:stop])
             ):
                 indices[target, : selected.size] = selected
-                coefficients[target, : selected.size] = model.coef_
+                coefficients[target, : selected.size] = model.coef_.reshape(-1)
                 intercepts[target] = model.intercept_[0]
             self._batches.append(
                 (
@@ -385,30 +297,57 @@ class _GroupedRidge:
         return cupy.asnumpy(predictions)
 
 
+class _SharedDesignRidge:
+    def __init__(self, cupy, selection, models, dtype, batch_size):
+        self._cupy = cupy
+        self._selection = cupy.asarray(selection, dtype=cupy.int64)
+        self.compute_dtype = np.dtype(dtype)
+        self.prediction_output_dtype = np.dtype(np.float64)
+        self.shared_design = True
+        self._batches = []
+        for start in range(0, len(models), batch_size):
+            stop = min(start + batch_size, len(models))
+            coefficients = np.stack(
+                [model.coef_.reshape(-1) for model in models[start:stop]], axis=0
+            )
+            intercepts = np.asarray(
+                [model.intercept_[0] for model in models[start:stop]], dtype=dtype
+            )
+            self._batches.append(
+                (
+                    start,
+                    stop,
+                    cupy.asarray(coefficients, dtype=dtype),
+                    cupy.asarray(intercepts, dtype=dtype),
+                )
+            )
+
+    def predict(self, X):
+        cupy = self._cupy
+        X = cupy.asarray(np.ascontiguousarray(np.asarray(X)))
+        selected = X[:, self._selection]
+        predictions = cupy.empty((X.shape[0], self._batches[-1][1]), dtype=cupy.float64)
+        for start, stop, coefficients, intercepts in self._batches:
+            predictions[:, start:stop] = selected @ coefficients.T + intercepts
+        return cupy.asnumpy(predictions)
+
+
 def _cuda_dtype(*arrays):
     dtype = np.result_type(*(np.asarray(array).dtype for array in arrays))
     return np.float64 if dtype == np.float64 else np.float32
 
 
 def can_batch_cuda_ridge(regression_kwargs):
-    solver = regression_kwargs.get("solver")
+    solver = regression_kwargs.get("solver", "auto")
     alpha = regression_kwargs.get("alpha", 1.0)
     try:
         alpha = float(alpha)
     except (TypeError, ValueError):
         return False
-    return solver in (None, "auto") and np.isfinite(alpha) and alpha > 0
-
-
-def _ridge_requires_float64(cupy, gram, alpha):
-    if gram.dtype != cupy.float32 or alpha >= 1:
-        return False
-    scale = cupy.max(cupy.sum(cupy.abs(gram), axis=-1)).item()
-    return alpha <= np.finfo(np.float32).eps * scale
+    return solver == "auto" and np.isfinite(alpha) and alpha > 0
 
 
 def _solve_ridge(cupy, X, Y, alpha, fit_intercept):
-    output_dtype = X.dtype
     if fit_intercept:
         X_offset = X.mean(axis=-2, keepdims=True)
         Y_offset = Y.mean(axis=-2, keepdims=True)
@@ -423,13 +362,6 @@ def _solve_ridge(cupy, X, Y, alpha, fit_intercept):
     use_dual = X.shape[-1] > X.shape[-2]
     X_transposed = cupy.swapaxes(X_centered, -1, -2)
     gram = X_centered @ X_transposed if use_dual else X_transposed @ X_centered
-    promoted = False
-    if _ridge_requires_float64(cupy, gram, alpha):
-        promoted = True
-        X_centered = X_centered.astype(cupy.float64)
-        Y_centered = Y_centered.astype(cupy.float64)
-        X_transposed = cupy.swapaxes(X_centered, -1, -2)
-        gram = X_centered @ X_transposed if use_dual else X_transposed @ X_centered
 
     if use_dual:
         diagonal = cupy.arange(gram.shape[-1])
@@ -441,10 +373,7 @@ def _solve_ridge(cupy, X, Y, alpha, fit_intercept):
         gram[..., diagonal, diagonal] += alpha
         weights = cupy.linalg.solve(gram, X_transposed @ Y_centered)
     intercept = Y_offset - X_offset @ weights
-    if weights.dtype != output_dtype:
-        weights = weights.astype(output_dtype)
-        intercept = intercept.astype(output_dtype)
-    return weights, intercept, promoted
+    return weights, intercept, False
 
 
 def _grouped_batch_size(
@@ -469,6 +398,26 @@ def _grouped_batch_size(
     return max(1, min(n_targets, cap, fitted)), bytes_per_target
 
 
+def _shared_design_batch_size(
+    n_samples,
+    n_features,
+    n_targets,
+    itemsize,
+    workspace_bytes=None,
+    max_batch_size=None,
+):
+    if workspace_bytes is None:
+        workspace_bytes = DEFAULT_CUDA_RIDGE_WORKSPACE_BYTES
+    workspace_bytes = int(workspace_bytes)
+    if workspace_bytes < 1:
+        raise ValueError("ridge workspace bytes must be positive")
+    matrix_width = min(n_samples, n_features)
+    bytes_per_target = itemsize * (3 * n_samples + 2 * n_features + matrix_width)
+    fitted = max(1, workspace_bytes // max(1, bytes_per_target))
+    cap = resolve_ridge_max_batch_size(n_targets, max_batch_size)
+    return max(1, min(n_targets, cap, fitted)), bytes_per_target
+
+
 def fit_grouped_ridge_cuda(
     X,
     Y,
@@ -483,6 +432,8 @@ def fit_grouped_ridge_cuda(
     cupy = _load_cupy()
     X = np.ascontiguousarray(np.asarray(X))
     Y = np.ascontiguousarray(np.asarray(Y))
+    if X.ndim != 2 or Y.ndim != 2:
+        raise ValueError("batched CUDA Ridge requires two-dimensional X and Y")
     dtype = _cuda_dtype(X, Y)
     selections = [
         np.flatnonzero(indices)
@@ -490,8 +441,16 @@ def fit_grouped_ridge_cuda(
         else np.asarray(indices, dtype=np.int64)
         for indices in source_indices
     ]
+    if len(selections) != Y.shape[1]:
+        raise ValueError("one source selection is required for each target")
+    if any(indices.size == 0 for indices in selections):
+        raise ValueError("each CUDA Ridge target requires at least one source")
     max_features = max(indices.size for indices in selections)
-    batch_size, bytes_per_target = _grouped_batch_size(
+    shared_design = all(
+        np.array_equal(selections[0], indices) for indices in selections[1:]
+    )
+    batch_sizer = _shared_design_batch_size if shared_design else _grouped_batch_size
+    batch_size, bytes_per_target = batch_sizer(
         X.shape[0],
         max_features,
         Y.shape[1],
@@ -502,34 +461,55 @@ def fit_grouped_ridge_cuda(
     alpha = float(regression_kwargs.get("alpha", 1.0))
     fit_intercept = regression_kwargs.get("fit_intercept", True)
     models = []
-    promoted_to_float64 = False
 
     with phase("ridge"):
-        for start in range(0, Y.shape[1], batch_size):
-            stop = min(start + batch_size, Y.shape[1])
-            batch_selections = selections[start:stop]
-            batch_features = max(indices.size for indices in batch_selections)
-            X_batch = np.zeros((stop - start, X.shape[0], batch_features), dtype=dtype)
-            for target, indices in enumerate(batch_selections):
-                X_batch[target, :, : indices.size] = X[:, indices]
-            Y_batch = np.ascontiguousarray(
-                Y[:, start:stop].T[:, :, np.newaxis], dtype=dtype
-            )
-            weights, intercepts, promoted = _solve_ridge(
-                cupy,
-                cupy.asarray(X_batch),
-                cupy.asarray(Y_batch),
-                alpha,
-                fit_intercept,
-            )
-            promoted_to_float64 = promoted_to_float64 or promoted
-            weights = cupy.asnumpy(weights[:, :, 0])
-            intercepts = cupy.asnumpy(intercepts[:, 0, 0])
-            models.extend(
-                _FittedRidge(weights[target, : indices.size], intercepts[target])
-                for target, indices in enumerate(batch_selections)
-            )
-    grouped = _GroupedRidge(cupy, selections, models, dtype, batch_size)
+        if shared_design:
+            selection = selections[0]
+            X_device = cupy.asarray(np.ascontiguousarray(X[:, selection], dtype=dtype))
+            for start in range(0, Y.shape[1], batch_size):
+                stop = min(start + batch_size, Y.shape[1])
+                Y_device = cupy.asarray(
+                    np.ascontiguousarray(Y[:, start:stop], dtype=dtype)
+                )
+                weights, intercepts, _ = _solve_ridge(
+                    cupy, X_device, Y_device, alpha, fit_intercept
+                )
+                weights = cupy.asnumpy(weights)
+                intercepts = cupy.asnumpy(intercepts).reshape(-1)
+                models.extend(
+                    _FittedRidge(weights[:, target], intercepts[target])
+                    for target in range(stop - start)
+                )
+        else:
+            for start in range(0, Y.shape[1], batch_size):
+                stop = min(start + batch_size, Y.shape[1])
+                batch_selections = selections[start:stop]
+                batch_features = max(indices.size for indices in batch_selections)
+                X_batch = np.zeros(
+                    (stop - start, X.shape[0], batch_features), dtype=dtype
+                )
+                for target, indices in enumerate(batch_selections):
+                    X_batch[target, :, : indices.size] = X[:, indices]
+                Y_batch = np.ascontiguousarray(
+                    Y[:, start:stop].T[:, :, np.newaxis], dtype=dtype
+                )
+                weights, intercepts, _ = _solve_ridge(
+                    cupy,
+                    cupy.asarray(X_batch),
+                    cupy.asarray(Y_batch),
+                    alpha,
+                    fit_intercept,
+                )
+                weights = cupy.asnumpy(weights[:, :, 0])
+                intercepts = cupy.asnumpy(intercepts[:, 0, 0])
+                models.extend(
+                    _FittedRidge(weights[target, : indices.size], intercepts[target])
+                    for target, indices in enumerate(batch_selections)
+                )
+    if shared_design:
+        grouped = _SharedDesignRidge(cupy, selections[0], models, dtype, batch_size)
+    else:
+        grouped = _GroupedRidge(cupy, selections, models, dtype, batch_size)
     grouped.batch_size = batch_size
     grouped.workspace_bytes = (
         DEFAULT_CUDA_RIDGE_WORKSPACE_BYTES
@@ -537,7 +517,7 @@ def fit_grouped_ridge_cuda(
         else int(workspace_bytes)
     )
     grouped.bytes_per_target = bytes_per_target
-    grouped.promoted_to_float64 = promoted_to_float64
+    grouped.promoted_to_float64 = False
     grouped.max_batch_size = resolve_ridge_max_batch_size(Y.shape[1], max_batch_size)
     set_last_cuda_batch_report(
         {
@@ -549,7 +529,12 @@ def fit_grouped_ridge_cuda(
             "ridge_batch_size_effective": int(batch_size),
             "ridge_max_batch_size_requested": max_batch_size,
             "ridge_max_batch_size_effective": grouped.max_batch_size,
-            "ridge_promoted_to_float64": bool(promoted_to_float64),
+            "ridge_promoted_to_float64": False,
+            "ridge_shared_design": shared_design,
+            "ridge_compute_dtype": str(grouped.compute_dtype),
+            "coefficient_dtype": str(grouped.compute_dtype),
+            "prediction_compute_dtype": str(grouped.compute_dtype),
+            "prediction_output_dtype": str(grouped.prediction_output_dtype),
         }
     )
     return models, grouped
@@ -557,7 +542,7 @@ def fit_grouped_ridge_cuda(
 
 def make_resolved_regressor(regression_type, regression_kwargs, backend):
     if backend == "cuda":
-        return _CuMLRidge(regression_kwargs)
+        return _CudaRidge(regression_kwargs)
 
     from sklearn import linear_model
 
@@ -569,16 +554,26 @@ def make_regressor(regression_type, regression_kwargs, backend="cpu"):
     return make_resolved_regressor(regression_type, regression_kwargs, resolved_backend)
 
 
-def _torch_correlation_dtype(dtype):
+def _torch_correlation_dtype(dtype, *arrays):
     torch = _load_torch()
     if dtype is None:
-        return torch.float32, np.float32
+        dtype = _cuda_dtype(*arrays)
     dtype = np.dtype(dtype)
     if dtype == np.float64:
         return torch.float64, np.float64
     if dtype == np.float32:
         return torch.float32, np.float32
     raise ValueError("CUDA correlations support only float32 or float64")
+
+
+def correlation_cutoff_tolerance(thresholds):
+    thresholds = np.asarray(thresholds)
+    dtype = thresholds.dtype
+    if dtype not in (np.dtype(np.float32), np.dtype(np.float64)):
+        dtype = np.dtype(np.float64)
+        thresholds = thresholds.astype(dtype)
+    scale = np.maximum(1, np.abs(thresholds))
+    return CORRELATION_CUTOFF_EPS_MULTIPLIER * np.finfo(dtype).eps * scale
 
 
 def correlations_cuda(
@@ -590,12 +585,11 @@ def correlations_cuda(
     dtype=None,
 ):
     torch = _load_torch()
-    torch_dtype, numpy_dtype = _torch_correlation_dtype(dtype)
+    torch_dtype, numpy_dtype = _torch_correlation_dtype(dtype, X, Y)
     allow_tf32 = torch.backends.cuda.matmul.allow_tf32
     try:
         torch.backends.cuda.matmul.allow_tf32 = False
-        with phase("correlation"):
-          with torch.no_grad():
+        with phase("correlation"), torch.no_grad():
             X_array = np.ascontiguousarray(np.asarray(X))
             X_device = torch.as_tensor(X_array, dtype=torch_dtype, device="cuda")
             X_device = X_device - X_device.mean(dim=0)
@@ -665,7 +659,16 @@ def correlations_cuda(
                     threshold_batch,
                 )
                 threshold_batch[finite_counts == 0] = torch.nan
-                selected_batch = (correlation_batch >= threshold_batch).T
+                cutoff_tolerance = (
+                    CORRELATION_CUTOFF_EPS_MULTIPLIER
+                    * torch.finfo(correlation_batch.dtype).eps
+                    * torch.maximum(
+                        torch.ones_like(threshold_batch), threshold_batch.abs()
+                    )
+                )
+                selected_batch = (
+                    correlation_batch >= threshold_batch - cutoff_tolerance
+                ).T
                 if return_correlations:
                     correlations[:, start:stop] = correlation_batch.cpu().numpy()
                 thresholds[start:stop] = threshold_batch.cpu().numpy()

@@ -13,12 +13,12 @@ def _test_get_linregress_consistency(**linregress_kwargs):
     noise = np.random.randn(100, NUM_STIMULI, 14) * 0.1  # small noise
     animal_neurons = model_data[None, :, :] + noise
 
-    kwargs = dict(
-        source=model_data,
-        target=animal_neurons,
-        num_parallel_jobs=1,
-        num_bootstrap_iters=10,
-    )
+    kwargs = {
+        "source": model_data,
+        "target": animal_neurons,
+        "num_parallel_jobs": 1,
+        "num_bootstrap_iters": 10,
+    }
     kwargs.update(linregress_kwargs)
     results = get_linregress_consistency(**kwargs)
 

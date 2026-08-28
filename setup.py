@@ -1,5 +1,6 @@
-from setuptools import setup, find_packages
 import os
+
+from setuptools import find_packages, setup
 
 if os.path.exists("requirements.txt"):
     with open("requirements.txt", "r") as fb:
@@ -20,6 +21,7 @@ setup(
     version="0.1",
     packages=find_packages(),
     install_requires=requirements,
+    extras_require={"cuda12": ["cupy-cuda12x[ctk]", "torch"]},
     python_requires=">=3.6",
     # metadata to display on PyPI
     description="Brain-Model Utilities",

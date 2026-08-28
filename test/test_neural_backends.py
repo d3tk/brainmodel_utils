@@ -2,6 +2,7 @@ import inspect
 import subprocess
 import sys
 import warnings
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -10,7 +11,6 @@ from sklearn.linear_model import Lasso, Ridge
 
 from brainmodel_utils.metrics.consistency import (
     _get_consistency_per_neuron_pearson,
-    _mapping_uses_cuda,
     get_consistency_per_neuron,
     get_linregress_consistency,
 )
@@ -24,6 +24,21 @@ def _regression_data():
     X = rng.normal(size=(30, 5))
     weights = rng.normal(size=(5, 3))
     return X, X @ weights + 0.2
+
+
+def _numpy_cupy():
+    return SimpleNamespace(
+        arange=np.arange,
+        asarray=np.asarray,
+        ascontiguousarray=np.ascontiguousarray,
+        asnumpy=np.asarray,
+        empty=np.empty,
+        float64=np.float64,
+        int64=np.int64,
+        linalg=np.linalg,
+        swapaxes=np.swapaxes,
+        zeros=np.zeros,
+    )
 
 
 def test_vectorized_pearson_consistency_matches_per_target_path():
@@ -100,9 +115,10 @@ def test_backend_is_last_optional_constructor_argument():
 
 
 @pytest.mark.parametrize("mapper", [SKLinearNeuralMap, PercentileNeuralMap])
-def test_invalid_backend_is_rejected(mapper):
+@pytest.mark.parametrize("backend", ["auto", "tpu"])
+def test_invalid_backend_is_rejected(mapper, backend):
     with pytest.raises(ValueError, match="backend"):
-        mapper(backend="tpu")
+        mapper(backend=backend)
 
 
 def test_cpu_import_does_not_load_cuda_dependencies():
@@ -131,85 +147,101 @@ percentile.predict(X)
     subprocess.run([sys.executable, "-c", script], check=True)
 
 
-def test_auto_falls_back_when_cuda_is_unavailable(monkeypatch):
-    monkeypatch.setattr(backends, "cuda_available", lambda: False)
-    X, Y = _regression_data()
-    mapper = SKLinearNeuralMap(backend="auto")
-
-    mapper.fit(X, Y)
-
-    assert isinstance(mapper._mapper, Ridge)
-
-
-def test_percentile_auto_falls_back_when_cuda_is_unavailable(monkeypatch):
-    monkeypatch.setattr(backends, "cuda_available", lambda: False)
-    X, Y = _regression_data()
-    mapper = PercentileNeuralMap(percentile=50, identity=False, backend="auto")
-
-    mapper.fit(X, Y)
-
-    assert all(isinstance(regressor, Ridge) for regressor in mapper._mappers)
-
-
-@pytest.mark.parametrize(
-    ("regression_type", "regression_kwargs", "expected_type"),
-    [
-        ("Lasso", {"alpha": 0.01}, Lasso),
-        ("Ridge", {"positive": True}, Ridge),
-    ],
-)
-def test_auto_uses_cpu_for_unsupported_configuration(
-    monkeypatch, regression_type, regression_kwargs, expected_type
-):
-    monkeypatch.setattr(backends, "cuda_available", lambda: True)
-    X, Y = _regression_data()
-    mapper = SKLinearNeuralMap(
-        regression_type=regression_type,
-        regression_kwargs=regression_kwargs,
-        backend="auto",
-    )
-
-    mapper.fit(X, Y[:, 0])
-
-    assert isinstance(mapper._mapper, expected_type)
-
-
-def test_per_target_alpha_falls_back_or_errors(monkeypatch):
+def test_per_target_alpha_is_rejected_by_cuda(monkeypatch):
     monkeypatch.setattr(backends, "cuda_available", lambda: True)
     X, Y = _regression_data()
     alpha = np.array([0.5, 1.0, 2.0])
 
-    auto_mapper = SKLinearNeuralMap(regression_kwargs={"alpha": alpha}, backend="auto")
-    auto_mapper.fit(X, Y)
-
-    assert isinstance(auto_mapper._mapper, Ridge)
     with pytest.raises(ValueError, match="scalar alpha"):
         SKLinearNeuralMap(regression_kwargs={"alpha": alpha}, backend="cuda").fit(X, Y)
 
 
-@pytest.mark.parametrize("solver", [None, "eig"])
-def test_auto_rejects_solver_without_cpu_fallback(solver):
+def test_cpu_keeps_regression_types_that_cuda_does_not_support():
     X, Y = _regression_data()
     mapper = SKLinearNeuralMap(
-        regression_kwargs={"solver": solver},
-        backend="auto",
+        regression_type="Lasso",
+        regression_kwargs={"alpha": 0.01},
+        backend="cpu",
     )
 
-    with pytest.raises(ValueError, match="solver"):
-        mapper.fit(X, Y)
+    mapper.fit(X, Y[:, 0])
+
+    assert isinstance(mapper._mapper, Lasso)
 
 
-def test_auto_handles_known_cuml_import_incompatibility(monkeypatch):
-    def incompatible_cuml():
-        raise AttributeError("BaseEstimator._get_default_requests")
-
-    monkeypatch.setattr(backends, "_load_cuml_ridge", incompatible_cuml)
+def test_cuda_rejects_unsupported_regression_type():
     X, Y = _regression_data()
-    mapper = SKLinearNeuralMap(backend="auto")
+
+    with pytest.raises(ValueError, match="regression_type='Ridge'"):
+        SKLinearNeuralMap(
+            regression_type="Lasso",
+            regression_kwargs={"alpha": 0.01},
+            backend="cuda",
+        ).fit(X, Y[:, 0])
+
+
+def test_cuda_availability_only_requires_cupy(monkeypatch):
+    cupy = SimpleNamespace(
+        cuda=SimpleNamespace(runtime=SimpleNamespace(getDeviceCount=lambda: 1))
+    )
+    monkeypatch.setattr(backends, "_load_cupy", lambda: cupy)
+
+    assert backends.cuda_available()
+    assert not hasattr(backends, "_load_cuml_ridge")
+
+
+def test_cuda_ridge_closed_form_does_not_require_cuml(monkeypatch):
+    monkeypatch.setattr(backends, "_load_cupy", _numpy_cupy)
+    X, Y = _regression_data()
+    mapper = backends._CudaRidge({"alpha": 1.0, "solver": "auto"})
+    expected = Ridge(alpha=1.0, solver="auto").fit(X, Y)
 
     mapper.fit(X, Y)
 
-    assert mapper._resolved_backend == "cpu"
+    np.testing.assert_allclose(mapper.coef_, expected.coef_, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(
+        mapper.intercept_, expected.intercept_, rtol=1e-12, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        mapper.predict(X), expected.predict(X), rtol=1e-12, atol=1e-12
+    )
+
+
+def test_grouped_cuda_ridge_reuses_a_shared_design(monkeypatch):
+    monkeypatch.setattr(backends, "_load_cupy", _numpy_cupy)
+    X, Y = _regression_data()
+    selections = [np.arange(X.shape[1]) for _ in range(Y.shape[1])]
+    kwargs = {"alpha": 1.0, "fit_intercept": True, "solver": "auto"}
+    expected = Ridge(**kwargs).fit(X, Y)
+
+    models, grouped = backends.fit_grouped_ridge_cuda(
+        X, Y, selections, kwargs, max_batch_size=2
+    )
+
+    assert grouped.shared_design
+    assert grouped.batch_size == 2
+    assert backends.last_cuda_batch_report()["ridge_shared_design"]
+    assert all(model.coef_.shape == (X.shape[1],) for model in models)
+    np.testing.assert_allclose(
+        grouped.predict(X), expected.predict(X), rtol=1e-12, atol=1e-12
+    )
+
+
+@pytest.mark.parametrize(
+    ("regression_kwargs", "message"),
+    [
+        ({"alpha": 0.0}, "positive alpha"),
+        ({"alpha": -1.0}, "positive alpha"),
+        ({"positive": True}, "positive"),
+        ({"solver": "svd"}, "solver"),
+        ({"fit_intercept": 1}, "fit_intercept"),
+    ],
+)
+def test_explicit_cuda_rejects_unsupported_ridge_contract(regression_kwargs, message):
+    X, Y = _regression_data()
+
+    with pytest.raises(ValueError, match=message):
+        SKLinearNeuralMap(regression_kwargs=regression_kwargs, backend="cuda").fit(X, Y)
 
 
 def test_cuda_consistency_rejects_multiple_jobs():
@@ -230,24 +262,13 @@ def test_cuda_consistency_rejects_multiple_jobs():
         )
 
 
-def test_auto_cpu_consistency_keeps_parallelism(monkeypatch):
-    monkeypatch.setattr(backends, "cuda_available", lambda: False)
-    monkeypatch.setattr(backends, "torch_cuda_available", lambda: False)
-    map_kwargs = {
-        "map_type": "percentile",
-        "map_kwargs": {"percentile": 50, "identity": False, "backend": "auto"},
-    }
-
-    assert not _mapping_uses_cuda(map_kwargs)
-
-
 @pytest.mark.parametrize("mapper", [SKLinearNeuralMap, PercentileNeuralMap])
 def test_explicit_cuda_reports_unavailable_runtime(mapper, monkeypatch):
     monkeypatch.setattr(backends, "cuda_available", lambda: False)
     monkeypatch.setattr(backends, "torch_cuda_available", lambda: False)
     X, Y = _regression_data()
 
-    with pytest.raises(RuntimeError, match="CUDA|cuML"):
+    with pytest.raises(RuntimeError, match="CUDA|CuPy"):
         mapper(backend="cuda").fit(X, Y)
 
 
@@ -288,12 +309,13 @@ def test_batched_ridge_solve_handles_float32_collinear_columns(perturbation):
     Y = np.column_stack(
         (2 * basis[:, 0] - basis[:, 1], -0.5 * basis[:, 0] + basis[:, 2])
     )
-    alpha = 1e-6
-    expected = Ridge(alpha=alpha).fit(X.astype(np.float64), Y).predict(X)
+    alpha = 0.01
+    expected = Ridge(alpha=alpha).fit(X, Y).predict(X)
 
-    weights, intercept, _promoted = backends._solve_ridge(np, X, Y, alpha, True)
+    weights, intercept, promoted = backends._solve_ridge(np, X, Y, alpha, True)
     actual = X @ weights + intercept
 
+    assert not promoted
     assert weights.dtype == intercept.dtype == np.float32
     np.testing.assert_allclose(actual, expected, rtol=2e-3, atol=2e-3)
 
@@ -330,6 +352,23 @@ def test_percentile_identity_uses_first_source_when_correlations_tie():
 
     assert mapper._mappers == [np.int64(0)]
     np.testing.assert_array_equal(mapper.predict(X)[:, 0], X[:, 0])
+
+
+@pytest.mark.parametrize("dtype", (np.float32, np.float64))
+def test_percentile_selection_treats_roundoff_scale_cutoffs_as_ties(dtype):
+    threshold = dtype(0.63)
+    mapper = PercentileNeuralMap(percentile=100, identity=False)
+    mapper._n_source = 3
+    mapper._n_targets = 1
+    mapper._thresholds = np.asarray([threshold], dtype=dtype)
+    mapper._corrs = np.asarray(
+        [[threshold], [np.nextafter(threshold, dtype(-np.inf))], [dtype(0.5)]],
+        dtype=dtype,
+    )
+
+    selected = mapper._get_sources(0)
+
+    np.testing.assert_array_equal(selected, [True, True, False])
 
 
 def test_percentile_constant_target_keeps_cpu_fallback():
