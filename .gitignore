@@ -140,5 +140,14 @@ dmypy.json
 *.error
 *.err
 
+# Generated benchmark artifacts
+benchmarks/generated/
+benchmarks/results/generated/
+benchmarks/results/*.json
+benchmarks/results/*.npz
+benchmarks/results/campaign/*.json
+benchmarks/results/campaign/*.npz
+benchmarks/results/slurm/
+
 # Temporary model checkpoints prior to gs bucket transfer
 gs:/
