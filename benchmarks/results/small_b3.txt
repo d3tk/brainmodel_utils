@@ -1,0 +1,15 @@
+{"variant": "reference", "median_wall_s": 65.09905204200186, "fits": 45, "peak_rss_mb": 151.5625, "delta_peak_mb": 0.765625, "tree_peak_mb": 151.515625, "median_cpu_s": 69.561479952, "cores_busy": 1.073580582610083, "bitwise": null, "max_abs_diff": null}
+{"variant": "vectorized", "median_wall_s": 63.392523749993416, "fits": 45, "peak_rss_mb": 151.5, "delta_peak_mb": 0.734375, "tree_peak_mb": 151.21875, "median_cpu_s": 67.25718151999999, "cores_busy": 1.060336038992085, "bitwise": true, "max_abs_diff": 0.0}
+{"variant": "cache_only", "median_wall_s": 48.47064054198563, "fits": 35, "peak_rss_mb": 151.46875, "delta_peak_mb": 0.71875, "tree_peak_mb": 151.171875, "median_cpu_s": 51.34480912, "cores_busy": 1.064405264987709, "bitwise": true, "max_abs_diff": 0.0}
+{"variant": "cached", "median_wall_s": 46.7004531249986, "fits": 35, "peak_rss_mb": 151.453125, "delta_peak_mb": 0.765625, "tree_peak_mb": 151.25, "median_cpu_s": 49.778812959999996, "cores_busy": 1.06592699875846, "bitwise": true, "max_abs_diff": 0.0}
+{"variant": "batched-64", "median_wall_s": 46.44364216699614, "fits": 70, "peak_rss_mb": 151.515625, "delta_peak_mb": 0.765625, "tree_peak_mb": 151.390625, "median_cpu_s": 49.582508016, "cores_busy": 1.067490288848003, "bitwise": true, "max_abs_diff": 0.0}
+
+Tier small: {'n_source_voxels': 128, 'n_target_voxels': 128, 'trials': 40, 'max_iter': None} boots=3 jobs=1 repeats=3
+variant             wall_s  speedup     cpu_s  cores   fits   peakRSS     Δpeak      tree  equivalence
+reference            65.10    1.00x     69.56   1.07     45      152M        1M      152M  reference
+vectorized           63.39    1.03x     67.26   1.06     45      152M        1M      151M  bitwise
+cache_only           48.47    1.34x     51.34   1.06     35      151M        1M      151M  bitwise
+cached               46.70    1.39x     49.78   1.07     35      151M        1M      151M  bitwise
+batched-64           46.44    1.40x     49.58   1.07     70      152M        1M      151M  bitwise
+
+raw results appended to /Users/dtk/Desktop/Projects/brainmodel_utils/benchmarks/results/small_b3_j1.jsonl

@@ -1,0 +1,11 @@
+{"variant": "reference", "median_wall_s": 33.33914141598507, "fits": null, "peak_rss_mb": 170.1875, "delta_peak_mb": 2.71875, "tree_peak_mb": 574.609375, "median_cpu_s": 69.267704167, "cores_busy": 2.077669106793144, "bitwise": null, "max_abs_diff": null}
+{"variant": "cached", "median_wall_s": 22.612440083001275, "fits": null, "peak_rss_mb": 173.6875, "delta_peak_mb": 6.3125, "tree_peak_mb": 556.453125, "median_cpu_s": 41.546347324, "cores_busy": 1.837322605234105, "bitwise": true, "max_abs_diff": 0.0}
+{"variant": "batched-256", "median_wall_s": 22.196127250004793, "fits": null, "peak_rss_mb": 173.671875, "delta_peak_mb": 6.453125, "tree_peak_mb": 542.15625, "median_cpu_s": 41.17391128599999, "cores_busy": 1.8550042907143227, "bitwise": true, "max_abs_diff": 0.0}
+
+Tier medium: {'n_source_voxels': 1024, 'n_target_voxels': 1024, 'trials': 40, 'max_iter': 50} boots=4 jobs=2 repeats=1
+variant             wall_s  speedup     cpu_s  cores   fits   peakRSS     Δpeak      tree  equivalence
+reference            33.34    1.00x     69.27   2.08   None      170M        3M      575M  reference
+cached               22.61    1.47x     41.55   1.84   None      174M        6M      556M  bitwise
+batched-256          22.20    1.50x     41.17   1.86   None      174M        6M      542M  bitwise
+
+raw results appended to /Users/dtk/Desktop/Projects/brainmodel_utils/benchmarks/results/medium_b4_j2.jsonl

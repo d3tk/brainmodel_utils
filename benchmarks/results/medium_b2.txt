@@ -1,0 +1,23 @@
+{"variant": "reference", "median_wall_s": 34.76385108300019, "fits": 30, "peak_rss_mb": 177.90625, "delta_peak_mb": 10.640625, "tree_peak_mb": 177.90625, "median_cpu_s": 34.945442496, "cores_busy": 1.0045719779048836, "bitwise": null, "max_abs_diff": null}
+{"variant": "vectorized", "median_wall_s": 27.06080245799967, "fits": 30, "peak_rss_mb": 172.109375, "delta_peak_mb": 4.65625, "tree_peak_mb": 172.109375, "median_cpu_s": 27.218846304, "cores_busy": 1.0058403237023597, "bitwise": true, "max_abs_diff": 0.0}
+{"variant": "cache_only", "median_wall_s": 29.409619249985553, "fits": 25, "peak_rss_mb": 172.59375, "delta_peak_mb": 5.265625, "tree_peak_mb": 172.5625, "median_cpu_s": 29.53384852, "cores_busy": 1.004086865378063, "bitwise": true, "max_abs_diff": 0.0}
+{"variant": "cached", "median_wall_s": 22.37304862498422, "fits": 25, "peak_rss_mb": 166.03125, "delta_peak_mb": 3.1875, "tree_peak_mb": 166.03125, "median_cpu_s": 22.4675704, "cores_busy": 1.004224805327166, "bitwise": true, "max_abs_diff": 0.0}
+{"variant": "batched-64", "median_wall_s": 22.14682600001106, "fits": 400, "peak_rss_mb": 173.359375, "delta_peak_mb": 6.09375, "tree_peak_mb": 173.359375, "median_cpu_s": 22.266927952, "cores_busy": 1.0054229871128657, "bitwise": false, "max_abs_diff": 2071.3125}
+{"variant": "batched-128", "median_wall_s": 22.341930416994728, "fits": 200, "peak_rss_mb": 173.171875, "delta_peak_mb": 5.546875, "tree_peak_mb": 173.171875, "median_cpu_s": 22.439944704, "cores_busy": 1.0043870106645179, "bitwise": false, "max_abs_diff": 677867.25}
+{"variant": "batched-256", "median_wall_s": 22.1651316669886, "fits": 100, "peak_rss_mb": 173.296875, "delta_peak_mb": 5.71875, "tree_peak_mb": 173.296875, "median_cpu_s": 22.30873688, "cores_busy": 1.0064788793122885, "bitwise": true, "max_abs_diff": 0.0}
+{"variant": "batched-512", "median_wall_s": 22.60933587499312, "fits": 50, "peak_rss_mb": 175.0625, "delta_peak_mb": 7.546875, "tree_peak_mb": 175.0625, "median_cpu_s": 22.681179552000003, "cores_busy": 1.0042654109585567, "bitwise": true, "max_abs_diff": 0.0}
+{"variant": "batched-1024", "median_wall_s": 22.31100187500124, "fits": 25, "peak_rss_mb": 171.21875, "delta_peak_mb": 3.671875, "tree_peak_mb": 171.21875, "median_cpu_s": 22.443397824, "cores_busy": 1.0060893957612138, "bitwise": true, "max_abs_diff": 0.0}
+
+Tier medium: {'n_source_voxels': 1024, 'n_target_voxels': 1024, 'trials': 40, 'max_iter': 50} boots=2 jobs=1 repeats=3
+variant             wall_s  speedup     cpu_s  cores   fits   peakRSS     Δpeak      tree  equivalence
+reference            34.76    1.00x     34.95   1.00     30      178M       11M      178M  reference
+vectorized           27.06    1.28x     27.22   1.01     30      172M        5M      172M  bitwise
+cache_only           29.41    1.18x     29.53   1.00     25      173M        5M      173M  bitwise
+cached               22.37    1.55x     22.47   1.00     25      166M        3M      166M  bitwise
+batched-64           22.15    1.57x     22.27   1.01    400      173M        6M      173M  max|Δ|=2.07e+03
+batched-128          22.34    1.56x     22.44   1.00    200      173M        6M      173M  max|Δ|=6.78e+05
+batched-256          22.17    1.57x     22.31   1.01    100      173M        6M      173M  bitwise
+batched-512          22.61    1.54x     22.68   1.00     50      175M        8M      175M  bitwise
+batched-1024         22.31    1.56x     22.44   1.01     25      171M        4M      171M  bitwise
+
+raw results appended to /Users/dtk/Desktop/Projects/brainmodel_utils/benchmarks/results/medium_b2_j1.jsonl

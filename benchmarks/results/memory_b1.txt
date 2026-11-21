@@ -1,0 +1,15 @@
+{"variant": "reference", "median_wall_s": 151.58583045800333, "fits": 15, "peak_rss_mb": 2028.46875, "delta_peak_mb": 1705.28125, "tree_peak_mb": 2028.46875, "median_cpu_s": 153.295502592, "cores_busy": 1.0112785748432491, "bitwise": null, "max_abs_diff": null}
+{"variant": "cached", "median_wall_s": 136.5435379590199, "fits": 15, "peak_rss_mb": 1354.265625, "delta_peak_mb": 1031.125, "tree_peak_mb": 1354.265625, "median_cpu_s": 138.401200832, "cores_busy": 1.0136049124019157, "bitwise": true, "max_abs_diff": 0.0}
+{"variant": "batched-64", "median_wall_s": 121.39654208399588, "fits": 960, "peak_rss_mb": 401.21875, "delta_peak_mb": 78.109375, "tree_peak_mb": 401.21875, "median_cpu_s": 122.682889136, "cores_busy": 1.0105962412925573, "bitwise": false, "max_abs_diff": 1118481.0}
+{"variant": "batched-256", "median_wall_s": 125.90082337500644, "fits": 240, "peak_rss_mb": 387.9375, "delta_peak_mb": 65.046875, "tree_peak_mb": 387.9375, "median_cpu_s": 127.51449767999999, "cores_busy": 1.0128170274167874, "bitwise": true, "max_abs_diff": 0.0}
+{"variant": "batched-1024", "median_wall_s": 133.1697576669976, "fits": 60, "peak_rss_mb": 612.0, "delta_peak_mb": 288.828125, "tree_peak_mb": 612.0, "median_cpu_s": 134.139429024, "cores_busy": 1.0072814682101259, "bitwise": true, "max_abs_diff": 0.0}
+
+Tier memory: {'n_source_voxels': 27118, 'n_target_voxels': 4096, 'trials': 20, 'max_iter': 5} boots=1 jobs=1 repeats=1
+variant             wall_s  speedup     cpu_s  cores   fits   peakRSS     Δpeak      tree  equivalence
+reference           151.59    1.00x    153.30   1.01     15     2028M     1705M     2028M  reference
+cached              136.54    1.11x    138.40   1.01     15     1354M     1031M     1354M  bitwise
+batched-64          121.40    1.25x    122.68   1.01    960      401M       78M      401M  max|Δ|=1.12e+06
+batched-256         125.90    1.20x    127.51   1.01    240      388M       65M      388M  bitwise
+batched-1024        133.17    1.14x    134.14   1.01     60      612M      289M      612M  bitwise
+
+raw results appended to /Users/dtk/Desktop/Projects/brainmodel_utils/benchmarks/results/memory_b1_j1.jsonl

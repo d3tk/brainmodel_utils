@@ -1,0 +1,9 @@
+{"variant": "reference", "median_wall_s": 27.3080600000103, "fits": 30, "peak_rss_mb": 399.234375, "delta_peak_mb": 97.84375, "tree_peak_mb": 399.234375, "median_cpu_s": 29.142429184, "cores_busy": 1.0671731783213092, "bitwise": null, "max_abs_diff": null}
+{"variant": "cached", "median_wall_s": 23.666888959007338, "fits": 25, "peak_rss_mb": 348.0625, "delta_peak_mb": 51.90625, "tree_peak_mb": 348.0625, "median_cpu_s": 24.6427844, "cores_busy": 1.0412346313316878, "bitwise": true, "max_abs_diff": 0.0}
+
+Tier wide: {'n_source_voxels': 27118, 'n_target_voxels': 64, 'trials': 20, 'max_iter': 50} boots=2 jobs=1 repeats=3
+variant             wall_s  speedup     cpu_s  cores   fits   peakRSS     Δpeak      tree  equivalence
+reference            27.31    1.00x     29.14   1.07     30      399M       98M      399M  reference
+cached               23.67    1.15x     24.64   1.04     25      348M       52M      348M  bitwise
+
+raw results appended to /Users/dtk/Desktop/Projects/brainmodel_utils/benchmarks/results/wide_b2_j1.jsonl
