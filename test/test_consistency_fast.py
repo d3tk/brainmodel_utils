@@ -556,3 +556,76 @@ def test_warnings_still_emitted():
                                      num_bootstrap_iters=1, splits=SPLITS)
     names = {type(w.message).__name__ for w in caught}
     assert "ConstantInputWarning" in names
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: public import path
+# ---------------------------------------------------------------------------
+def test_public_signature_unchanged():
+    import inspect
+
+    from brainmodel_utils.metrics import consistency
+
+    params = inspect.signature(consistency.get_linregress_consistency).parameters
+    assert list(params) == list(inspect.signature(R.get_linregress_consistency).parameters)
+    for name, p in inspect.signature(R.get_linregress_consistency).parameters.items():
+        assert params[name].default == p.default and params[name].kind == p.kind
+    for name in ("sb_correction", "get_consistency_per_neuron", "get_linregress_consistency_persplit",
+                 "get_linregress_consistency_persphalftrial", "concat_dict_sp", "generic_trial_avg",
+                 "get_splithalves", "PipelineNeuralMap", "generate_train_test_splits"):
+        assert hasattr(consistency, name), name
+
+
+@pytest.mark.parametrize("impl", ["fast", "reference", ""])
+def test_public_entry_point_matches_reference(monkeypatch, impl):
+    from brainmodel_utils.metrics import consistency
+
+    monkeypatch.setenv(consistency.IMPL_ENV, impl)
+    called = {}
+    for mod, label in ((F, "fast"), (R, "reference")):
+        original = mod.get_linregress_consistency
+
+        def spy(*a, _orig=original, _label=label, **k):
+            called.setdefault(_label, 0)
+            called[_label] += 1
+            return _orig(*a, **k)
+
+        monkeypatch.setattr(mod, "get_linregress_consistency", spy)
+    source, target = sd.make_fly_pair(n_source_voxels=12, n_target_voxels=10, seed=14)
+    kw = dict(source=source, target=target, map_kwargs=sd.enet_map_kwargs(), num_bootstrap_iters=2,
+              num_parallel_jobs=1, start_seed=42, splits=SPLITS, metric="pearsonr")
+    out = consistency.get_linregress_consistency(**kw)
+    assert ("fast" in called) == (impl in ("fast", ""))
+    monkeypatch.undo()
+    assert_results_identical(R.get_linregress_consistency(**kw), out)
+
+
+def test_public_entry_point_rejects_unknown_impl(monkeypatch):
+    from brainmodel_utils.metrics import consistency
+
+    monkeypatch.setenv(consistency.IMPL_ENV, "gpu")
+    with pytest.raises(ValueError):
+        consistency.get_linregress_consistency(source=np.zeros((2, 3, 2)), target=np.zeros((2, 3, 2)),
+                                               map_kwargs={}, num_bootstrap_iters=1)
+
+
+def test_reference_rollback_ignores_batch_kwarg(monkeypatch):
+    from brainmodel_utils.metrics import consistency
+
+    monkeypatch.setenv(consistency.IMPL_ENV, "reference")
+    source, target = sd.make_fly_pair(n_source_voxels=8, n_target_voxels=8, seed=15)
+    consistency.get_linregress_consistency(source=source, target=target, map_kwargs=sd.enet_map_kwargs(),
+                                           num_bootstrap_iters=1, splits=SPLITS, target_batch_size=4)
+
+
+def test_production_caller_import_path(tmp_path):
+    """Mirror autonomous_drosophila.load_consistency_function: path insert + import."""
+    import importlib
+    import sys
+
+    repo = str(fixtures.HERE.parent)
+    if repo not in sys.path:
+        sys.path.insert(0, repo)
+    module = importlib.import_module("brainmodel_utils.metrics.consistency")
+    assert module.__file__.startswith(repo)
+    assert module.get_linregress_consistency.__module__ == "brainmodel_utils.metrics.consistency"
